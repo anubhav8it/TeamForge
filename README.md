@@ -2,13 +2,9 @@
 
 ## Skill-Based Hackathon & Project Team Matchmaker
 
-TeamForge is a C++ and Qt based project developed for the PBL course of
-Graphic Era (Deemed to be University).
+TeamForge is a C++ and Qt based PBL project developed at **Graphic Era (Deemed to be University)**.
 
-The project focuses on helping students form better teams for hackathons,
-PBL projects, coding competitions, and academic projects by matching
-students according to the skills they can contribute and the skills
-required by a project.
+The project is focused on helping students form better teams for hackathons, PBL projects, coding competitions, and academic projects by matching the skills students can contribute with the skills required by a project.
 
 ---
 
@@ -29,23 +25,25 @@ required by a project.
 
 ## Project Overview
 
-Students often form project teams through friends, existing groups, or
-informal messaging channels. This can result in teams having similar
-skills while missing important roles.
+Students often form teams through friends, existing groups, or informal messaging channels. This can result in teams having similar skills while missing important roles.
 
-TeamForge is designed to make this process more structured. Students can
-provide their skills, experience, and availability, while a project can
-define the skills and roles it requires. The system then uses matching,
-ranking, and team-coverage checks to help identify suitable team members.
+TeamForge is designed to make this process more structured. Students can provide their skills, experience, and availability, while a project can define the skills and roles it requires. The system then helps retrieve suitable candidates, rank them, and identify the skills covered and the gaps that remain.
+
+The main idea is to encourage **complementary skill matching** instead of forming teams only on the basis of friendship or availability.
 
 ---
 
-## Current Phase
+# PBL Phases
 
-### Phase 1 – Project Proposal & Planning
+The TeamForge project is planned across three PBL phases.
 
-Phase 1 contains the initial planning and design work for TeamForge,
-including:
+## Phase 1 – Project Proposal & Planning
+
+**Status: Completed**
+
+Phase 1 contains the initial planning and design work of the project.
+
+It includes:
 
 - Problem identification and motivation
 - Project objectives
@@ -56,25 +54,41 @@ including:
 - Team contribution planning
 - Development roadmap
 - Expected project outcomes
+- Phase 1 report and presentation
+
+### Phase 1 Contents
+
+**Report**
+
+Contains the final Phase 1 report, LaTeX source, supporting images, figures, and compiled PDF.
+
+**PPT**
+
+Contains the Phase 1 project presentation, source files, and required assets.
 
 ---
 
-## Phase 1 Contents
+## Phase 2 – Application Development
 
-### Report
+**Status: Upcoming**
 
-The `Phase-1/Report` folder contains the TeamForge project report,
-including the LaTeX source, final PDF, figures, images, and related
-report assets.
+Phase 2 will contain the development work of the TeamForge application, including the implementation of the planned modules, data structures, matching logic, user interface, and related project work.
 
-### Presentation
-
-The `Phase-1/PPT` folder contains the Phase 1 project presentation and
-its related files.
+The Phase 2 folder will be updated when development begins.
 
 ---
 
-## Technology Stack
+## Phase 3 – Testing & Final Demonstration
+
+**Status: Upcoming**
+
+Phase 3 will contain the final testing, refinement, evaluation, documentation, and final demonstration materials.
+
+The Phase 3 folder will be updated when the phase begins.
+
+---
+
+# Technology Stack
 
 - **Programming:** C++
 - **UI Framework:** Qt
@@ -84,16 +98,17 @@ its related files.
 
 ---
 
-## Planned DSA & OOP Integration
+# DSA & OOP Integration
 
 TeamForge is being designed around concepts from both TCS-302 and TCS-307.
 
 ### Data Structures
 
-- Hash Maps
+- Arrays
 - Sets
 - Vectors
-- Queues and Priority Queues
+- Queues
+- Priority Queues
 - Linked Structures
 - Trees
 - Graphs
@@ -116,7 +131,7 @@ TeamForge is being designed around concepts from both TCS-302 and TCS-307.
 
 ---
 
-## Team Members
+# Team Members
 
 1. **Mukul Fartiyal** – Team / Integration Lead
 2. **Anubhav Bisht** – UI / Testing / Documentation Lead
@@ -125,21 +140,20 @@ TeamForge is being designed around concepts from both TCS-302 and TCS-307.
 
 ---
 
-## Repository Structure
+# Repository Structure
+
+The repository will follow the phase-wise structure below as the project progresses:
 
 ```text
 TeamForge/
 │
 ├── Phase-1/
 │   ├── Report/
-│   │   ├── main.tex
-│   │   ├── TeamForge_Phase1_Report.pdf
-│   │   ├── images/
-│   │   └── figures/
-│   │
 │   └── PPT/
 │
 ├── Phase-2/
+│
 ├── Phase-3/
+│
 ├── README.md
 └── .gitignore
