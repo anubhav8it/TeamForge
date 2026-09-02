@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+>=Latex,
+node distance=7mm,
+box/.style={draw=GEUBlue,rounded corners=2pt,fill=BoxGrey,minimum width=6.9cm,minimum height=8mm,align=center,font=\small},
+side/.style={draw=GEUDark,rounded corners=2pt,fill=white,minimum width=3.45cm,minimum height=16mm,align=center,font=\scriptsize},
+arr/.style={-{Latex[length=2mm]},line width=.75pt,draw=GEUDark}]
+\node[box] (ui) {UI - Qt Desktop\\Profile Manager | Requirement Builder | Match View | Team Workspace};
+\node[box,below=of ui] (app) {Application / Control Layer\\Validation | routing | module coordination};
+\node[box,below=of app] (match) {Matching \& Ranking Engine\\Candidate retrieval | weighted score | top-K ranking};
+\node[box,below=of match] (team) {Team Management\\Formation strategy | size / duplicate checks | coverage and gaps};
+\node[box,below=of team] (store) {Local Persistence\\Profiles | requirements | teams | history};
+\node[box,below=of store] (out) {Output / Reports\\Ranked candidates | suggested teams | coverage | gaps};
+\draw[arr] (ui)--(app);
+\draw[arr] (app)--(match);
+\draw[arr] (match)--(team);
+\draw[arr] (team)--(store);
+\draw[arr] (store)--(out);
+\node[side,right=11mm of match] (dsa) {\textbf{DSA Core}\\Hash map | set/vector\\Priority queue | graph\\BST/AVL | search/sort};
+\node[side,right=11mm of team] (oop) {\textbf{C++ OOP Core}\\Domain classes\\Strategies | inheritance\\Polymorphism | templates\\Exceptions | file I/O};
+\draw[arr] (dsa.west) -- (match.east);
+\draw[arr] (oop.west) -- (team.east);
+\end{tikzpicture}
