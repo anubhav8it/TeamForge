@@ -1,21 +1,21 @@
-# TeamForge Report
+# TeamForge Phase 1 Report
 
-Project: **TeamForge - Skill-Based Hackathon & Project Team Matchmaker**
+This folder contains the Phase 1 report for **TeamForge – Skill-Based Hackathon & Project Team Matchmaker**.
 
-Main LaTeX file: `report_latex.tex`
+## Files
+
+- `main.tex` – Main LaTeX source file
+- `TeamForge_Report.pdf` – Final compiled report
+- `images/` – Team member photographs
+- `figures/` – Report figures and architecture files
 
 ## Overleaf
-Upload the complete `Report` folder to Overleaf and open `report_latex.tex` as the main document. Compile with pdfLaTeX.
 
-## Local compilation
-Run `pdflatex report_latex.tex` twice from the `Report` directory.
+Upload the complete `Report` folder to Overleaf and open `main.tex`.
 
-## Images
-Member photographs are in `images/`:
-- `member1.jpeg` - Mukul Fartiyal
-- `member2.jpeg` - Anubhav Bisht
-- `member3.jpeg` - Siddhant Singh
-- `member4.jpeg` - Mehul
+Compile using **pdfLaTeX**. All required images and figures are included in this folder.
 
-## Architecture
-The editable TikZ architecture is embedded in `report_latex.tex` and corresponds to the TeamForge Phase-I architecture.
+## Team
+
+**Team:** TEAMFORGE  
+**Team ID:** DSCPP-III-2026-T238
