@@ -2,13 +2,13 @@
 
 Project: **TeamForge - Skill-Based Hackathon & Project Team Matchmaker**
 
-Main LaTeX file: `main.tex`
+Main LaTeX file: `report_latex.tex`
 
 ## Overleaf
-Upload the complete `Report` folder to Overleaf and open `main.tex` as the main document. Compile with pdfLaTeX.
+Upload the complete `Report` folder to Overleaf and open `report_latex.tex` as the main document. Compile with pdfLaTeX.
 
 ## Local compilation
-Run `pdflatex main.tex` twice from the `Report` directory.
+Run `pdflatex report_latex.tex` twice from the `Report` directory.
 
 ## Images
 Member photographs are in `images/`:
@@ -18,4 +18,4 @@ Member photographs are in `images/`:
 - `member4.jpeg` - Mehul
 
 ## Architecture
-The editable TikZ architecture is embedded in `main.tex` and corresponds to the TeamForge Phase-I architecture.
+The editable TikZ architecture is embedded in `report_latex.tex` and corresponds to the TeamForge Phase-I architecture.
