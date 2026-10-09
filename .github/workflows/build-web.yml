@@ -1,0 +1,95 @@
+# Builds TeamForge for the browser (Qt for WebAssembly) on GitHub's machines, so nobody needs Qt
+# or Emscripten installed locally. The result (TeamForge.js, TeamForge.wasm, qtloader.js) is
+# committed into Phase-2/web/static/app/, which makes Render deploy the new version automatically.
+# The project lives in the repository's Phase-2/ folder.
+#
+# Versions: the official Qt 6.12 documentation (https://doc.qt.io/qt-6/wasm.html) lists
+# Emscripten 5.0.5 for Qt 6.12.0. They must match exactly.
+name: Build web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Phase-2/**"
+      - ".github/workflows/build-web.yml"
+      - "!Phase-2/web/static/app/TeamForge.js"
+      - "!Phase-2/web/static/app/TeamForge.wasm"
+      - "!Phase-2/web/static/app/qtloader.js"
+  workflow_dispatch: {}   # "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write         # to commit the built files
+
+concurrency:
+  group: build-web
+  cancel-in-progress: true
+
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: Phase-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Install Qt 6.12.0 for WebAssembly (single-threaded)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.12.0"
+          host: all_os
+          target: wasm
+          arch: wasm_singlethread
+          cache: true
+
+      - name: Install Emscripten 5.0.5
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: "5.0.5"
+
+      - name: Show versions
+        run: |
+          echo "QT_ROOT_DIR=$QT_ROOT_DIR"
+          echo "QT_HOST_PATH=${QT_HOST_PATH:-<not set>}"
+          emcc --version | head -n 1
+          cmake --version | head -n 1
+
+      - name: Configure
+        run: |
+          EXTRA=""
+          if [ -n "${QT_HOST_PATH:-}" ]; then EXTRA="-DQT_HOST_PATH=$QT_HOST_PATH"; fi
+          "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release $EXTRA
+
+      - name: Build
+        run: cmake --build build-wasm
+
+      - name: Copy into web/static/app
+        run: |
+          sh web/tools/copy-wasm.sh build-wasm
+          ls -la web/static/app
+
+      - name: Keep a copy of the build (downloadable from this run's page)
+        uses: actions/upload-artifact@v4
+        with:
+          name: teamforge-wasm
+          path: |
+            Phase-2/web/static/app/TeamForge.js
+            Phase-2/web/static/app/TeamForge.wasm
+            Phase-2/web/static/app/qtloader.js
+
+      - name: Commit the build so Render deploys it
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f web/static/app/TeamForge.js web/static/app/TeamForge.wasm web/static/app/qtloader.js
+          if git diff --cached --quiet; then
+            echo "Build output unchanged; nothing to commit."
+          else
+            git commit -m "Build TeamForge for WebAssembly [skip ci]"
+            git push
+          fi
