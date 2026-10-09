@@ -8,6 +8,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Quick)
 qt_standard_project_setup(REQUIRES 6.8)
+# Browser build: Qt's prebuilt WebAssembly kits have exception catching turned off, so any C++
+# throw would abort the app. TeamForge's core reports errors with exceptions that are always
+# caught inside TeamForge's own code, so turn Emscripten's exception catching on for it.
+if(EMSCRIPTEN)
+    add_compile_options(-fexceptions)
+    add_link_options(-fexceptions)
+endif()
 
 # Project warning flags, linked privately into each TeamForge target (not Qt-generated code).
 add_library(teamforge_warnings INTERFACE)
