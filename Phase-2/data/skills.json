@@ -1,0 +1,2202 @@
+{
+    "version": 1,
+    "note": "Skill catalogue: the category of each known skill. Skills stay open-ended; any new skill is valid without an entry here.",
+    "skills": [
+        {
+            "name": ".net maui",
+            "category": "Mobile development"
+        },
+        {
+            "name": "3d animation",
+            "category": "Game & XR"
+        },
+        {
+            "name": "3d modelling",
+            "category": "Game & XR"
+        },
+        {
+            "name": "3d printing",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "5g networks",
+            "category": "Networking"
+        },
+        {
+            "name": "a/b testing",
+            "category": "Data science"
+        },
+        {
+            "name": "academic presentation",
+            "category": "Research"
+        },
+        {
+            "name": "accessibility design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "adobe xd",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "after effects",
+            "category": "Media"
+        },
+        {
+            "name": "agile",
+            "category": "Management"
+        },
+        {
+            "name": "agritech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "ai agents",
+            "category": "AI / ML"
+        },
+        {
+            "name": "ai ethics",
+            "category": "AI / ML"
+        },
+        {
+            "name": "airflow",
+            "category": "Data science"
+        },
+        {
+            "name": "algorithms",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "altium designer",
+            "category": "Electronics"
+        },
+        {
+            "name": "amazon ec2",
+            "category": "Cloud"
+        },
+        {
+            "name": "amazon s3",
+            "category": "Cloud"
+        },
+        {
+            "name": "analog electronics",
+            "category": "Electronics"
+        },
+        {
+            "name": "android",
+            "category": "Mobile development"
+        },
+        {
+            "name": "android studio",
+            "category": "Mobile development"
+        },
+        {
+            "name": "angular",
+            "category": "Web development"
+        },
+        {
+            "name": "anomaly detection",
+            "category": "AI / ML"
+        },
+        {
+            "name": "ansible",
+            "category": "DevOps"
+        },
+        {
+            "name": "ansys",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "apache spark",
+            "category": "Data science"
+        },
+        {
+            "name": "api testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "app store deployment",
+            "category": "Mobile development"
+        },
+        {
+            "name": "appium",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "ar/vr development",
+            "category": "Game & XR"
+        },
+        {
+            "name": "arduino",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "argo cd",
+            "category": "DevOps"
+        },
+        {
+            "name": "arm cortex-m",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "asp.net core",
+            "category": "Web development"
+        },
+        {
+            "name": "assembly language",
+            "category": "Programming"
+        },
+        {
+            "name": "assistive technology",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "audio editing",
+            "category": "Media"
+        },
+        {
+            "name": "autocad",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "autodesk maya",
+            "category": "Game & XR"
+        },
+        {
+            "name": "autonomous vehicles",
+            "category": "Robotics"
+        },
+        {
+            "name": "aws",
+            "category": "Cloud"
+        },
+        {
+            "name": "aws iot",
+            "category": "IoT"
+        },
+        {
+            "name": "aws lambda",
+            "category": "Cloud"
+        },
+        {
+            "name": "azure",
+            "category": "Cloud"
+        },
+        {
+            "name": "azure functions",
+            "category": "Cloud"
+        },
+        {
+            "name": "bash",
+            "category": "Programming"
+        },
+        {
+            "name": "big data",
+            "category": "Data science"
+        },
+        {
+            "name": "bigquery",
+            "category": "Data science"
+        },
+        {
+            "name": "bioinformatics",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "blender",
+            "category": "Game & XR"
+        },
+        {
+            "name": "blockchain",
+            "category": "Web3"
+        },
+        {
+            "name": "bluetooth low energy",
+            "category": "IoT"
+        },
+        {
+            "name": "bootstrap",
+            "category": "Web development"
+        },
+        {
+            "name": "brand strategy",
+            "category": "Marketing"
+        },
+        {
+            "name": "branding",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "burp suite",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "business analysis",
+            "category": "Business"
+        },
+        {
+            "name": "business model canvas",
+            "category": "Business"
+        },
+        {
+            "name": "business strategy",
+            "category": "Business"
+        },
+        {
+            "name": "c",
+            "category": "Programming"
+        },
+        {
+            "name": "c#",
+            "category": "Programming"
+        },
+        {
+            "name": "c++",
+            "category": "Programming"
+        },
+        {
+            "name": "cad modelling",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "campaign management",
+            "category": "Marketing"
+        },
+        {
+            "name": "can bus",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "canva",
+            "category": "Media"
+        },
+        {
+            "name": "cassandra",
+            "category": "Databases"
+        },
+        {
+            "name": "catia",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "ci/cd",
+            "category": "DevOps"
+        },
+        {
+            "name": "circuit design",
+            "category": "Electronics"
+        },
+        {
+            "name": "cisco packet tracer",
+            "category": "Networking"
+        },
+        {
+            "name": "citation management",
+            "category": "Research"
+        },
+        {
+            "name": "climate tech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "clojure",
+            "category": "Programming"
+        },
+        {
+            "name": "cloud",
+            "category": "Cloud"
+        },
+        {
+            "name": "cloud architecture",
+            "category": "Cloud"
+        },
+        {
+            "name": "cloud migration",
+            "category": "Cloud"
+        },
+        {
+            "name": "cloud security",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "cloudflare",
+            "category": "Cloud"
+        },
+        {
+            "name": "cloudformation",
+            "category": "Cloud"
+        },
+        {
+            "name": "cmake",
+            "category": "DevOps"
+        },
+        {
+            "name": "cnc machining",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "code coverage",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "color grading",
+            "category": "Media"
+        },
+        {
+            "name": "community management",
+            "category": "Communication"
+        },
+        {
+            "name": "competitive analysis",
+            "category": "Business"
+        },
+        {
+            "name": "competitive programming",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "compilers",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "computational chemistry",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "computational fluid dynamics",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "computer architecture",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "computer graphics",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "computer vision",
+            "category": "AI / ML"
+        },
+        {
+            "name": "comsol",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "conflict resolution",
+            "category": "Management"
+        },
+        {
+            "name": "confluence",
+            "category": "Management"
+        },
+        {
+            "name": "consensus algorithms",
+            "category": "Web3"
+        },
+        {
+            "name": "consumer behaviour",
+            "category": "Marketing"
+        },
+        {
+            "name": "content marketing",
+            "category": "Marketing"
+        },
+        {
+            "name": "content strategy",
+            "category": "Media"
+        },
+        {
+            "name": "content writing",
+            "category": "Writing"
+        },
+        {
+            "name": "control systems",
+            "category": "Robotics"
+        },
+        {
+            "name": "copywriting",
+            "category": "Writing"
+        },
+        {
+            "name": "creative writing",
+            "category": "Writing"
+        },
+        {
+            "name": "creo",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "crisis communication",
+            "category": "Communication"
+        },
+        {
+            "name": "cross-cultural communication",
+            "category": "Communication"
+        },
+        {
+            "name": "cryptography",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "ctf",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "cuda",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "customer discovery",
+            "category": "Business"
+        },
+        {
+            "name": "cybersecurity",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "cypress",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "dart",
+            "category": "Programming"
+        },
+        {
+            "name": "data analysis",
+            "category": "Data science"
+        },
+        {
+            "name": "data annotation",
+            "category": "AI / ML"
+        },
+        {
+            "name": "data cleaning",
+            "category": "Data science"
+        },
+        {
+            "name": "data collection",
+            "category": "Research"
+        },
+        {
+            "name": "data engineering",
+            "category": "Data science"
+        },
+        {
+            "name": "data visualization",
+            "category": "Data science"
+        },
+        {
+            "name": "data warehousing",
+            "category": "Data science"
+        },
+        {
+            "name": "database design",
+            "category": "Databases"
+        },
+        {
+            "name": "databases",
+            "category": "Databases"
+        },
+        {
+            "name": "databricks",
+            "category": "Data science"
+        },
+        {
+            "name": "davinci resolve",
+            "category": "Media"
+        },
+        {
+            "name": "dbt",
+            "category": "Data science"
+        },
+        {
+            "name": "debate",
+            "category": "Communication"
+        },
+        {
+            "name": "debugging",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "deep learning",
+            "category": "AI / ML"
+        },
+        {
+            "name": "defi",
+            "category": "Web3"
+        },
+        {
+            "name": "design patterns",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "design systems",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "design thinking",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "device drivers",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "devops",
+            "category": "DevOps"
+        },
+        {
+            "name": "differential equations",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "digital electronics",
+            "category": "Electronics"
+        },
+        {
+            "name": "digital forensics",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "digital marketing",
+            "category": "Business"
+        },
+        {
+            "name": "digital twins",
+            "category": "IoT"
+        },
+        {
+            "name": "disaster management",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "distributed systems",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "django",
+            "category": "Web development"
+        },
+        {
+            "name": "dns",
+            "category": "Networking"
+        },
+        {
+            "name": "docker",
+            "category": "DevOps"
+        },
+        {
+            "name": "documentation",
+            "category": "Writing"
+        },
+        {
+            "name": "drone programming",
+            "category": "Robotics"
+        },
+        {
+            "name": "dsa",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "dynamodb",
+            "category": "Databases"
+        },
+        {
+            "name": "edge ai",
+            "category": "AI / ML"
+        },
+        {
+            "name": "edge computing",
+            "category": "Cloud"
+        },
+        {
+            "name": "editing",
+            "category": "Writing"
+        },
+        {
+            "name": "edtech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "elasticsearch",
+            "category": "Databases"
+        },
+        {
+            "name": "electronics",
+            "category": "Electronics"
+        },
+        {
+            "name": "elixir",
+            "category": "Programming"
+        },
+        {
+            "name": "elk stack",
+            "category": "DevOps"
+        },
+        {
+            "name": "email marketing",
+            "category": "Marketing"
+        },
+        {
+            "name": "embedded c",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "embedded linux",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "end-to-end testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "entrepreneurship",
+            "category": "Business"
+        },
+        {
+            "name": "esp32",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "ethereum",
+            "category": "Web3"
+        },
+        {
+            "name": "ethers.js",
+            "category": "Web3"
+        },
+        {
+            "name": "ethical hacking",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "etl pipelines",
+            "category": "Data science"
+        },
+        {
+            "name": "event management",
+            "category": "Management"
+        },
+        {
+            "name": "excel",
+            "category": "Data science"
+        },
+        {
+            "name": "experimental design",
+            "category": "Research"
+        },
+        {
+            "name": "explainable ai",
+            "category": "AI / ML"
+        },
+        {
+            "name": "exploratory data analysis",
+            "category": "Data science"
+        },
+        {
+            "name": "expo",
+            "category": "Mobile development"
+        },
+        {
+            "name": "express.js",
+            "category": "Web development"
+        },
+        {
+            "name": "fastapi",
+            "category": "Web development"
+        },
+        {
+            "name": "feature engineering",
+            "category": "AI / ML"
+        },
+        {
+            "name": "figma",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "financial modelling",
+            "category": "Business"
+        },
+        {
+            "name": "finite difference methods",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "finite element analysis",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "fintech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "firebase",
+            "category": "Mobile development"
+        },
+        {
+            "name": "firestore",
+            "category": "Databases"
+        },
+        {
+            "name": "firmware development",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "flask",
+            "category": "Web development"
+        },
+        {
+            "name": "fluid mechanics",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "flutter",
+            "category": "Mobile development"
+        },
+        {
+            "name": "fortran",
+            "category": "Programming"
+        },
+        {
+            "name": "fpga",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "functional programming",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "fundraising",
+            "category": "Business"
+        },
+        {
+            "name": "fusion 360",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "game ai",
+            "category": "Game & XR"
+        },
+        {
+            "name": "game design",
+            "category": "Game & XR"
+        },
+        {
+            "name": "game physics",
+            "category": "Game & XR"
+        },
+        {
+            "name": "gazebo",
+            "category": "Robotics"
+        },
+        {
+            "name": "gd&t",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "gdb",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "generative ai",
+            "category": "AI / ML"
+        },
+        {
+            "name": "geospatial analysis",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "gis",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "git",
+            "category": "DevOps"
+        },
+        {
+            "name": "github actions",
+            "category": "DevOps"
+        },
+        {
+            "name": "gitlab ci",
+            "category": "DevOps"
+        },
+        {
+            "name": "gitops",
+            "category": "DevOps"
+        },
+        {
+            "name": "go",
+            "category": "Programming"
+        },
+        {
+            "name": "go-to-market strategy",
+            "category": "Business"
+        },
+        {
+            "name": "godot",
+            "category": "Game & XR"
+        },
+        {
+            "name": "google ads",
+            "category": "Marketing"
+        },
+        {
+            "name": "google analytics",
+            "category": "Marketing"
+        },
+        {
+            "name": "google cloud",
+            "category": "Cloud"
+        },
+        {
+            "name": "gradle",
+            "category": "DevOps"
+        },
+        {
+            "name": "grafana",
+            "category": "DevOps"
+        },
+        {
+            "name": "grant writing",
+            "category": "Research"
+        },
+        {
+            "name": "graphic design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "graphql",
+            "category": "Web development"
+        },
+        {
+            "name": "growth marketing",
+            "category": "Business"
+        },
+        {
+            "name": "grpc",
+            "category": "Web development"
+        },
+        {
+            "name": "hadoop",
+            "category": "Data science"
+        },
+        {
+            "name": "hardhat",
+            "category": "Web3"
+        },
+        {
+            "name": "haskell",
+            "category": "Programming"
+        },
+        {
+            "name": "healthtech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "heat transfer",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "helm",
+            "category": "DevOps"
+        },
+        {
+            "name": "home automation",
+            "category": "IoT"
+        },
+        {
+            "name": "hpc",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "html/css",
+            "category": "Web development"
+        },
+        {
+            "name": "hugging face",
+            "category": "AI / ML"
+        },
+        {
+            "name": "hypothesis testing",
+            "category": "Data science"
+        },
+        {
+            "name": "i2c",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "iam",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "illustration",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "illustrator",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "image segmentation",
+            "category": "AI / ML"
+        },
+        {
+            "name": "incident response",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "industrial iot",
+            "category": "IoT"
+        },
+        {
+            "name": "influencer marketing",
+            "category": "Marketing"
+        },
+        {
+            "name": "information architecture",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "infrastructure as code",
+            "category": "DevOps"
+        },
+        {
+            "name": "integration testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "intelligent transportation systems",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "interaction design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "interpersonal communication",
+            "category": "Communication"
+        },
+        {
+            "name": "ionic",
+            "category": "Mobile development"
+        },
+        {
+            "name": "ios development",
+            "category": "Mobile development"
+        },
+        {
+            "name": "iot",
+            "category": "IoT"
+        },
+        {
+            "name": "iot security",
+            "category": "IoT"
+        },
+        {
+            "name": "ipfs",
+            "category": "Web3"
+        },
+        {
+            "name": "java",
+            "category": "Programming"
+        },
+        {
+            "name": "javascript",
+            "category": "Programming"
+        },
+        {
+            "name": "jenkins",
+            "category": "DevOps"
+        },
+        {
+            "name": "jest",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "jetpack compose",
+            "category": "Mobile development"
+        },
+        {
+            "name": "jira",
+            "category": "Management"
+        },
+        {
+            "name": "jmeter",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "julia",
+            "category": "Programming"
+        },
+        {
+            "name": "junit",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "jupyter",
+            "category": "Data science"
+        },
+        {
+            "name": "kafka",
+            "category": "Data science"
+        },
+        {
+            "name": "kaggle competitions",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "kalman filters",
+            "category": "Robotics"
+        },
+        {
+            "name": "kanban",
+            "category": "Management"
+        },
+        {
+            "name": "keras",
+            "category": "AI / ML"
+        },
+        {
+            "name": "kicad",
+            "category": "Electronics"
+        },
+        {
+            "name": "kotlin",
+            "category": "Programming"
+        },
+        {
+            "name": "kotlin multiplatform",
+            "category": "Mobile development"
+        },
+        {
+            "name": "kubernetes",
+            "category": "DevOps"
+        },
+        {
+            "name": "langchain",
+            "category": "AI / ML"
+        },
+        {
+            "name": "laravel",
+            "category": "Web development"
+        },
+        {
+            "name": "large language models",
+            "category": "AI / ML"
+        },
+        {
+            "name": "latex",
+            "category": "Research"
+        },
+        {
+            "name": "lean startup",
+            "category": "Business"
+        },
+        {
+            "name": "legal tech",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "level design",
+            "category": "Game & XR"
+        },
+        {
+            "name": "lidar",
+            "category": "Robotics"
+        },
+        {
+            "name": "lightroom",
+            "category": "Media"
+        },
+        {
+            "name": "linear algebra",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "linux",
+            "category": "DevOps"
+        },
+        {
+            "name": "linux kernel",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "literature review",
+            "category": "Research"
+        },
+        {
+            "name": "llm fine-tuning",
+            "category": "AI / ML"
+        },
+        {
+            "name": "load balancing",
+            "category": "Networking"
+        },
+        {
+            "name": "lora",
+            "category": "IoT"
+        },
+        {
+            "name": "ltspice",
+            "category": "Electronics"
+        },
+        {
+            "name": "lua",
+            "category": "Programming"
+        },
+        {
+            "name": "machine design",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "machine learning",
+            "category": "AI / ML"
+        },
+        {
+            "name": "malware analysis",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "manual testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "markdown",
+            "category": "Writing"
+        },
+        {
+            "name": "market research",
+            "category": "Business"
+        },
+        {
+            "name": "market segmentation",
+            "category": "Marketing"
+        },
+        {
+            "name": "marketing analytics",
+            "category": "Marketing"
+        },
+        {
+            "name": "mathematica",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "mathematical modelling",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "mathematical optimization",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "matlab",
+            "category": "Programming"
+        },
+        {
+            "name": "matplotlib",
+            "category": "Data science"
+        },
+        {
+            "name": "maven",
+            "category": "DevOps"
+        },
+        {
+            "name": "medical imaging",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "memory management",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "mentoring",
+            "category": "Management"
+        },
+        {
+            "name": "meta-analysis",
+            "category": "Research"
+        },
+        {
+            "name": "metasploit",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "microcontrollers",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "microservices",
+            "category": "Web development"
+        },
+        {
+            "name": "microsoft sql server",
+            "category": "Databases"
+        },
+        {
+            "name": "mixed-methods research",
+            "category": "Research"
+        },
+        {
+            "name": "mlops",
+            "category": "AI / ML"
+        },
+        {
+            "name": "mobile testing",
+            "category": "Mobile development"
+        },
+        {
+            "name": "mobile ui",
+            "category": "Mobile development"
+        },
+        {
+            "name": "modbus",
+            "category": "IoT"
+        },
+        {
+            "name": "model evaluation",
+            "category": "AI / ML"
+        },
+        {
+            "name": "molecular dynamics",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "mongodb",
+            "category": "Databases"
+        },
+        {
+            "name": "monitoring",
+            "category": "DevOps"
+        },
+        {
+            "name": "monte carlo simulation",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "motion design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "motion planning",
+            "category": "Robotics"
+        },
+        {
+            "name": "motor control",
+            "category": "Electronics"
+        },
+        {
+            "name": "mpi",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "mqtt",
+            "category": "IoT"
+        },
+        {
+            "name": "multiplayer networking",
+            "category": "Game & XR"
+        },
+        {
+            "name": "multithreading",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "mysql",
+            "category": "Databases"
+        },
+        {
+            "name": "negotiation",
+            "category": "Communication"
+        },
+        {
+            "name": "neo4j",
+            "category": "Databases"
+        },
+        {
+            "name": "nestjs",
+            "category": "Web development"
+        },
+        {
+            "name": "network administration",
+            "category": "Networking"
+        },
+        {
+            "name": "network security",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "networking",
+            "category": "Networking"
+        },
+        {
+            "name": "next.js",
+            "category": "Web development"
+        },
+        {
+            "name": "nfts",
+            "category": "Web3"
+        },
+        {
+            "name": "nginx",
+            "category": "DevOps"
+        },
+        {
+            "name": "nlp",
+            "category": "AI / ML"
+        },
+        {
+            "name": "nmap",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "node-red",
+            "category": "IoT"
+        },
+        {
+            "name": "node.js",
+            "category": "Web development"
+        },
+        {
+            "name": "nosql",
+            "category": "Databases"
+        },
+        {
+            "name": "notion",
+            "category": "Management"
+        },
+        {
+            "name": "numerical methods",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "numpy",
+            "category": "Data science"
+        },
+        {
+            "name": "nvivo",
+            "category": "Research"
+        },
+        {
+            "name": "oauth",
+            "category": "Web development"
+        },
+        {
+            "name": "object detection",
+            "category": "AI / ML"
+        },
+        {
+            "name": "objective-c",
+            "category": "Programming"
+        },
+        {
+            "name": "ocr",
+            "category": "AI / ML"
+        },
+        {
+            "name": "offline-first apps",
+            "category": "Mobile development"
+        },
+        {
+            "name": "oop",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "opencv",
+            "category": "AI / ML"
+        },
+        {
+            "name": "openfoam",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "opengl",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "openmp",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "operating systems",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "operations research",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "oracle database",
+            "category": "Databases"
+        },
+        {
+            "name": "owasp",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "pandas",
+            "category": "Data science"
+        },
+        {
+            "name": "parallel computing",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "pcb design",
+            "category": "Electronics"
+        },
+        {
+            "name": "peer review",
+            "category": "Research"
+        },
+        {
+            "name": "penetration testing",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "performance marketing",
+            "category": "Marketing"
+        },
+        {
+            "name": "performance profiling",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "performance testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "perl",
+            "category": "Programming"
+        },
+        {
+            "name": "photography",
+            "category": "Media"
+        },
+        {
+            "name": "photoshop",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "php",
+            "category": "Programming"
+        },
+        {
+            "name": "pid control",
+            "category": "Robotics"
+        },
+        {
+            "name": "pitching",
+            "category": "Business"
+        },
+        {
+            "name": "playwright",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "plotly",
+            "category": "Data science"
+        },
+        {
+            "name": "podcast production",
+            "category": "Media"
+        },
+        {
+            "name": "postgresql",
+            "category": "Databases"
+        },
+        {
+            "name": "postman",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "power bi",
+            "category": "Data science"
+        },
+        {
+            "name": "power electronics",
+            "category": "Electronics"
+        },
+        {
+            "name": "powershell",
+            "category": "Programming"
+        },
+        {
+            "name": "premiere pro",
+            "category": "Media"
+        },
+        {
+            "name": "presentation design",
+            "category": "Writing"
+        },
+        {
+            "name": "pricing strategy",
+            "category": "Business"
+        },
+        {
+            "name": "procedural generation",
+            "category": "Game & XR"
+        },
+        {
+            "name": "product management",
+            "category": "Business"
+        },
+        {
+            "name": "product marketing",
+            "category": "Marketing"
+        },
+        {
+            "name": "product roadmapping",
+            "category": "Management"
+        },
+        {
+            "name": "progressive web apps",
+            "category": "Web development"
+        },
+        {
+            "name": "project management",
+            "category": "Management"
+        },
+        {
+            "name": "prometheus",
+            "category": "DevOps"
+        },
+        {
+            "name": "prompt engineering",
+            "category": "AI / ML"
+        },
+        {
+            "name": "proteus",
+            "category": "Electronics"
+        },
+        {
+            "name": "prototyping",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "public health",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "public relations",
+            "category": "Communication"
+        },
+        {
+            "name": "public speaking",
+            "category": "Writing"
+        },
+        {
+            "name": "push notifications",
+            "category": "Mobile development"
+        },
+        {
+            "name": "pytest",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "python",
+            "category": "Programming"
+        },
+        {
+            "name": "pytorch",
+            "category": "AI / ML"
+        },
+        {
+            "name": "qiskit",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "qml",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "qt",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "qualitative analysis",
+            "category": "Research"
+        },
+        {
+            "name": "quantitative analysis",
+            "category": "Research"
+        },
+        {
+            "name": "quantum computing",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "query optimization",
+            "category": "Databases"
+        },
+        {
+            "name": "r",
+            "category": "Programming"
+        },
+        {
+            "name": "rag",
+            "category": "AI / ML"
+        },
+        {
+            "name": "raspberry pi",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "react",
+            "category": "Web development"
+        },
+        {
+            "name": "react native",
+            "category": "Mobile development"
+        },
+        {
+            "name": "recommender systems",
+            "category": "AI / ML"
+        },
+        {
+            "name": "redis",
+            "category": "Databases"
+        },
+        {
+            "name": "redux",
+            "category": "Web development"
+        },
+        {
+            "name": "regression analysis",
+            "category": "Data science"
+        },
+        {
+            "name": "regression testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "reinforcement learning",
+            "category": "AI / ML"
+        },
+        {
+            "name": "remote sensing",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "renewable energy",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "report writing",
+            "category": "Communication"
+        },
+        {
+            "name": "requirements gathering",
+            "category": "Business"
+        },
+        {
+            "name": "research ethics",
+            "category": "Research"
+        },
+        {
+            "name": "research methodology",
+            "category": "Research"
+        },
+        {
+            "name": "research writing",
+            "category": "Research"
+        },
+        {
+            "name": "responsive design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "rest api design",
+            "category": "Web development"
+        },
+        {
+            "name": "reverse engineering",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "risk management",
+            "category": "Management"
+        },
+        {
+            "name": "robot kinematics",
+            "category": "Robotics"
+        },
+        {
+            "name": "robot perception",
+            "category": "Robotics"
+        },
+        {
+            "name": "robotics",
+            "category": "Robotics"
+        },
+        {
+            "name": "ros2",
+            "category": "Robotics"
+        },
+        {
+            "name": "routing and switching",
+            "category": "Networking"
+        },
+        {
+            "name": "rtos",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "ruby",
+            "category": "Programming"
+        },
+        {
+            "name": "ruby on rails",
+            "category": "Web development"
+        },
+        {
+            "name": "rust",
+            "category": "Programming"
+        },
+        {
+            "name": "sass",
+            "category": "Web development"
+        },
+        {
+            "name": "scala",
+            "category": "Programming"
+        },
+        {
+            "name": "scikit-learn",
+            "category": "AI / ML"
+        },
+        {
+            "name": "scipy",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "scriptwriting",
+            "category": "Writing"
+        },
+        {
+            "name": "scrum",
+            "category": "Management"
+        },
+        {
+            "name": "sdn",
+            "category": "Networking"
+        },
+        {
+            "name": "seaborn",
+            "category": "Data science"
+        },
+        {
+            "name": "secure coding",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "security auditing",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "selenium",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "sensor fusion",
+            "category": "Robotics"
+        },
+        {
+            "name": "sensor networks",
+            "category": "IoT"
+        },
+        {
+            "name": "sentiment analysis",
+            "category": "AI / ML"
+        },
+        {
+            "name": "seo",
+            "category": "Business"
+        },
+        {
+            "name": "serverless",
+            "category": "Cloud"
+        },
+        {
+            "name": "shader programming",
+            "category": "Game & XR"
+        },
+        {
+            "name": "siem",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "signal processing",
+            "category": "Electronics"
+        },
+        {
+            "name": "simulink",
+            "category": "Scientific computing"
+        },
+        {
+            "name": "site reliability engineering",
+            "category": "DevOps"
+        },
+        {
+            "name": "slam",
+            "category": "Robotics"
+        },
+        {
+            "name": "smart cities",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "smart contracts",
+            "category": "Web3"
+        },
+        {
+            "name": "smart grid",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "social media",
+            "category": "Media"
+        },
+        {
+            "name": "socket programming",
+            "category": "Networking"
+        },
+        {
+            "name": "soldering",
+            "category": "Electronics"
+        },
+        {
+            "name": "solidity",
+            "category": "Web3"
+        },
+        {
+            "name": "solidworks",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "sound design",
+            "category": "Media"
+        },
+        {
+            "name": "speech recognition",
+            "category": "AI / ML"
+        },
+        {
+            "name": "spi",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "spring boot",
+            "category": "Web development"
+        },
+        {
+            "name": "sprint planning",
+            "category": "Management"
+        },
+        {
+            "name": "sql",
+            "category": "Data science"
+        },
+        {
+            "name": "sqlite",
+            "category": "Databases"
+        },
+        {
+            "name": "stakeholder management",
+            "category": "Management"
+        },
+        {
+            "name": "startup operations",
+            "category": "Business"
+        },
+        {
+            "name": "statistics",
+            "category": "Data science"
+        },
+        {
+            "name": "stm32",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "storytelling",
+            "category": "Communication"
+        },
+        {
+            "name": "subnetting",
+            "category": "Networking"
+        },
+        {
+            "name": "supabase",
+            "category": "Databases"
+        },
+        {
+            "name": "supply chain analytics",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "survey design",
+            "category": "Research"
+        },
+        {
+            "name": "sustainability analytics",
+            "category": "Domains & competitions"
+        },
+        {
+            "name": "svelte",
+            "category": "Web development"
+        },
+        {
+            "name": "swift",
+            "category": "Programming"
+        },
+        {
+            "name": "swiftui",
+            "category": "Mobile development"
+        },
+        {
+            "name": "system design",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "systems programming",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "systemverilog",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "tableau",
+            "category": "Data science"
+        },
+        {
+            "name": "tailwind css",
+            "category": "Web development"
+        },
+        {
+            "name": "tcp/ip",
+            "category": "Networking"
+        },
+        {
+            "name": "team leadership",
+            "category": "Management"
+        },
+        {
+            "name": "technical blogging",
+            "category": "Writing"
+        },
+        {
+            "name": "technical writing",
+            "category": "Research"
+        },
+        {
+            "name": "tensorflow",
+            "category": "AI / ML"
+        },
+        {
+            "name": "terraform",
+            "category": "Cloud"
+        },
+        {
+            "name": "test automation",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "test-driven development",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "thermodynamics",
+            "category": "Mechanical & CAD"
+        },
+        {
+            "name": "threat modelling",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "three.js",
+            "category": "Web development"
+        },
+        {
+            "name": "time management",
+            "category": "Management"
+        },
+        {
+            "name": "time series forecasting",
+            "category": "AI / ML"
+        },
+        {
+            "name": "transfer learning",
+            "category": "AI / ML"
+        },
+        {
+            "name": "transformers",
+            "category": "AI / ML"
+        },
+        {
+            "name": "typescript",
+            "category": "Programming"
+        },
+        {
+            "name": "typography",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "uart",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "ui design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "uml",
+            "category": "Systems & CS fundamentals"
+        },
+        {
+            "name": "unit testing",
+            "category": "Testing & QA"
+        },
+        {
+            "name": "unity",
+            "category": "Game & XR"
+        },
+        {
+            "name": "unreal engine",
+            "category": "Game & XR"
+        },
+        {
+            "name": "usability testing",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "user flows",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "user research",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "ux design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "ux writing",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "vector databases",
+            "category": "Databases"
+        },
+        {
+            "name": "vercel",
+            "category": "Cloud"
+        },
+        {
+            "name": "verilog",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "vhdl",
+            "category": "Embedded systems"
+        },
+        {
+            "name": "video editing",
+            "category": "Media"
+        },
+        {
+            "name": "videography",
+            "category": "Media"
+        },
+        {
+            "name": "visual design",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "vlsi design",
+            "category": "Electronics"
+        },
+        {
+            "name": "vpn",
+            "category": "Networking"
+        },
+        {
+            "name": "vue.js",
+            "category": "Web development"
+        },
+        {
+            "name": "vulnerability assessment",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "web accessibility",
+            "category": "Web development"
+        },
+        {
+            "name": "web performance",
+            "category": "Web development"
+        },
+        {
+            "name": "web scraping",
+            "category": "Data science"
+        },
+        {
+            "name": "web security",
+            "category": "Cybersecurity"
+        },
+        {
+            "name": "web3",
+            "category": "Web3"
+        },
+        {
+            "name": "webassembly",
+            "category": "Web development"
+        },
+        {
+            "name": "websockets",
+            "category": "Web development"
+        },
+        {
+            "name": "wireframing",
+            "category": "UI/UX & design"
+        },
+        {
+            "name": "wireless networks",
+            "category": "Networking"
+        },
+        {
+            "name": "wireshark",
+            "category": "Networking"
+        },
+        {
+            "name": "wordpress",
+            "category": "Web development"
+        },
+        {
+            "name": "workshop facilitation",
+            "category": "Communication"
+        },
+        {
+            "name": "xcode",
+            "category": "Mobile development"
+        },
+        {
+            "name": "xgboost",
+            "category": "AI / ML"
+        },
+        {
+            "name": "zero-knowledge proofs",
+            "category": "Web3"
+        },
+        {
+            "name": "zigbee",
+            "category": "IoT"
+        }
+    ]
+}

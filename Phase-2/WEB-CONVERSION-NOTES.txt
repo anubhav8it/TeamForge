@@ -1,0 +1,120 @@
+﻿TEAMFORGE – WEB CONVERSION NOTES
+
+Goal: build the EXISTING C++/QML application for Qt WebAssembly and host it as static files.
+Do not redesign it. Keep the Windows build working: put browser-only code behind
+`if(EMSCRIPTEN)` in CMake and `#ifdef Q_OS_WASM` in C++.
+
+
+CURRENT STACK
+- C++17 core (src/core), no Qt in core headers; JsonStorage.cpp uses Qt Core JSON
+- Qt 6.12 (requires Qt 6.8+), Qt Quick/QML with the Basic controls style
+- QML imports: QtQuick, QtQuick.Controls.Basic, QtQuick.Layouts, QtQuick.Effects,
+  QtQuick.Shapes
+- CMake; the UI is a static QML module (URI TeamForge) linked into the executable with
+  Q_IMPORT_QML_PLUGIN, which already suits Qt's static WebAssembly builds
+- Local persistence: JSON files in a runtime data folder, written with QSaveFile
+- No threads, no networking, no QSettings, no external processes
+
+
+WEB TARGET
+- Qt for WebAssembly, SINGLE-THREADED kit (wasm_singlethread)
+- Static hosting: GitHub Pages or equivalent
+- GitHub Pages cannot send the COOP/COEP headers the multithreaded kit needs
+  (SharedArrayBuffer), and the app uses no threads, so single-threaded is the right choice.
+
+
+BUILD STEPS (expected)
+1. Install Qt 6.12 "WebAssembly (single-threaded)" with the Qt installer, plus the Emscripten
+   SDK version that the Qt 6.12 "Qt for WebAssembly" documentation specifies (the versions
+   must match exactly). Activate emsdk in the shell.
+2. Configure with the kit's qt-cmake; turn the tests off (they are native executables):
+     <Qt>/6.12.0/wasm_singlethread/bin/qt-cmake -S . -B build-wasm -G Ninja
+         -DCMAKE_BUILD_TYPE=Release -DTEAMFORGE_BUILD_TESTS=OFF
+     cmake --build build-wasm
+3. Output in build-wasm/: TeamForge.html, TeamForge.js, TeamForge.wasm, qtloader.js,
+   qtlogo.svg.
+4. Run locally over HTTP (file:// will not work):
+     python -m http.server 8000 --directory build-wasm
+   then open http://localhost:8000/TeamForge.html
+5. Deploy: copy those files to the static host (e.g. a gh-pages branch or docs/ folder);
+   rename TeamForge.html to index.html or add a redirect. Keep all files together; they load
+   each other by relative path.
+6. Keep running the desktop build and ctest natively to check nothing regressed.
+
+
+IMPORTANT PORTING AREAS
+
+1. Browser-compatible local persistence (main work item)
+   - The data folder is TeamForgeController::defaultDataDirectory(): $TEAMFORGE_DATA_DIR,
+     else "<applicationDirPath>/data", else QStandardPaths AppLocalDataLocation + "/data".
+   - In the browser that path is Emscripten's in-memory filesystem (MEMFS): it works, but
+     everything is lost when the page reloads.
+   - Typical fix: mount IDBFS (IndexedDB) at a folder before the controller is created, load
+     it with FS.syncfs(true, ...) before Main.qml loads, point TEAMFORGE_DATA_DIR at it (e.g.
+     qputenv in main.cpp under Q_OS_WASM), and call FS.syncfs(false, ...) after each save.
+     Link with -lidbfs.js. All writes already go through storage:: (JsonStorage.cpp),
+     sampledata:: (SampleData.cpp), the session file and AppLog, so a sync hook after
+     TeamForgeController::save() and saveSession() covers them.
+   - First run: sampledata::ensureSeeded copies the bundled seed (Qt resources) into the data
+     folder; that works unchanged.
+   - Consider disabling or capping the teamforge.log file and the backup-<timestamp> folders
+     ("Reset seed data") in the browser, since IndexedDB storage is limited.
+   - Data stays per browser and per origin; clearing site data resets it.
+
+2. WebAssembly filesystem limitations
+   - No access to the user's disk. If testers need to export or import data, use
+     QFileDialog::saveFileContent / getOpenFileContent (Qt's WebAssembly helpers).
+   - QSaveFile and QTemporaryFile work on MEMFS/IDBFS.
+
+3. Relative resource paths
+   - QML, logos, fonts and seed data are already loaded from qrc:/qt/qml/TeamForge/...
+     (the QML module's RESOURCES). Keep it that way; don't add file-system paths.
+   - TEAMFORGE_SOURCE_DIR (an absolute path) is only defined for tests.
+
+4. QML/WebAssembly compatibility
+   - Qt Quick needs WebGL 2 in the browser. Verify that QtQuick.Effects (MultiEffect blur) and
+     QtQuick.Shapes, both used by the entry screen and its 3D logo (EntryScreen.qml,
+     LogoMark3D.qml), render correctly.
+   - Fonts: Manrope is bundled and registered in main.cpp, so the main UI looks the same. The
+     developer pages use "Consolas" (DevParticipantsPage.qml, RecordInspector.qml); it doesn't
+     exist in the browser. Bundle a monospace font under an open licence, the same way as
+     Manrope.
+   - main.cpp exits on objectCreationFailed; in the browser that shows a blank page, so watch
+     the browser console during the first runs.
+   - The app runs QGuiApplication::exec(); nothing uses blocking dialogs or nested event loops.
+
+5. Responsive browser viewport
+   - The window fills the browser canvas. Main.qml sets minimumWidth 1100 / minimumHeight 660;
+     smaller viewports will clip. The sidebar collapses to icons below 1360 px.
+   - Layouts are checked at 1280x720 and 1920x1080. Phones are not a current target.
+   - Check that the browser's devicePixelRatio and zoom keep the text sharp.
+
+6. Touch/pointer interaction
+   - The entry logo tilts on hover (HoverHandler), turns when dragged and spins when tapped.
+     Touch has no hover, so only drag and tap apply there; that's acceptable.
+   - Hover states are cosmetic; every action works by click/tap.
+
+7. No absolute Windows paths
+   - None in the source or CMake files. CLAUDE.md mentions the original developer's toolchain
+     paths only as setup notes.
+   - WIN32_EXECUTABLE in CMakeLists.txt is ignored on non-Windows targets.
+
+8. Deployment of WASM/JS/HTML/assets
+   - Serve .wasm as application/wasm (GitHub Pages does this). Expect a large .wasm (tens of
+     MB); a Release build plus the host's gzip/brotli compression helps. MinSizeRel is worth
+     trying.
+   - All assets are embedded in the .wasm; no separate asset folder needs deploying.
+
+9. Browser security/sandbox constraints
+   - No local file access, no processes, storage limited per origin, HTTPS on the public host.
+   - The app has no accounts, passwords or server, and must stay that way: all data stays in
+     the browser.
+   - The Participant / Host / Developer permissions are enforced in C++ and carry over
+     unchanged. Note that anyone with the URL can open the Developer workspace, which is
+     the same as the desktop build.
+
+
+DO NOT
+- Move scoring, ranking, validation or persistence into QML/JavaScript.
+- Change the matching weights or the data format.
+- Remove the Windows desktop path.
