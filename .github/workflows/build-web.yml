@@ -33,10 +33,21 @@ jobs:
       run:
         working-directory: Phase-2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Ninja
         run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      # The WebAssembly build needs the desktop Qt of the same version for its host tools
+      # (moc, rcc, qmlcachegen). Install it first; the next step then installs the WebAssembly kit.
+      - name: Install Qt 6.12.0 desktop (host tools)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.12.0"
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
 
       - name: Install Qt 6.12.0 for WebAssembly (single-threaded)
         uses: jurplel/install-qt-action@v4
@@ -61,9 +72,21 @@ jobs:
 
       - name: Configure
         run: |
-          EXTRA=""
-          if [ -n "${QT_HOST_PATH:-}" ]; then EXTRA="-DQT_HOST_PATH=$QT_HOST_PATH"; fi
-          "$QT_ROOT_DIR/bin/qt-cmake" -S . -B build-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release $EXTRA
+          # The WebAssembly kit's scripts may arrive without the executable bit; call CMake with
+          # Qt's toolchain file directly, and point it at the desktop Qt for the host tools.
+          chmod +x "$QT_ROOT_DIR"/bin/* 2>/dev/null || true
+          HOST="${QT_HOST_PATH:-}"
+          if [ -z "$HOST" ] || [ ! -d "$HOST" ]; then
+            for d in "$QT_ROOT_DIR/../gcc_64" "$QT_ROOT_DIR/../linux_gcc_64"; do
+              if [ -d "$d" ]; then HOST="$(cd "$d" && pwd)"; fi
+            done
+          fi
+          echo "WebAssembly Qt: $QT_ROOT_DIR"
+          echo "Host Qt:        ${HOST:-<not found>}"
+          ls "$QT_ROOT_DIR/.."
+          cmake -S . -B build-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_ROOT_DIR/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DQT_HOST_PATH="$HOST"
 
       - name: Build
         run: cmake --build build-wasm
