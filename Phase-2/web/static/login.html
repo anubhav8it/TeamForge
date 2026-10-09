@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge – Sign in</title>
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body>
+<main class="auth-page">
+  <div class="auth-card">
+    <img class="auth-logo" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <p class="auth-tagline">Build the right team.</p>
+
+    <section class="panel">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
+        <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
+      </div>
+
+      <div id="message" class="message hidden" role="alert"></div>
+
+      <form id="form-signin" method="post" action="/login" novalidate>
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" id="signin-email" autocomplete="username" required></label>
+        <label class="field"><span>Password</span>
+          <input type="password" name="password" id="signin-password" autocomplete="current-password" required></label>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+      </form>
+
+      <form id="form-register" class="hidden" method="post" action="/login" novalidate>
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" id="register-email" autocomplete="username" required></label>
+        <label class="field"><span>Password</span>
+          <input type="password" name="password" id="register-password" autocomplete="new-password" minlength="8" required></label>
+        <p class="hint">At least 8 characters.</p>
+        <label class="field"><span>Confirm password</span>
+          <input type="password" name="confirm" id="register-confirm" autocomplete="new-password" minlength="8" required></label>
+        <button class="btn btn-primary" type="submit">Create account</button>
+      </form>
+    </section>
+
+    <p class="auth-foot">New accounts start as participants. An admin can make you a host.<br>
+      Graphic Era (Deemed to be University) · Team DSCPP-III-2026-T238</p>
+  </div>
+</main>
+<script src="/static/js/login.js"></script>
+</body>
+</html>

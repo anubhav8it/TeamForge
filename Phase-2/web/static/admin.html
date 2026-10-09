@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge – Admin</title>
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body>
+<main class="admin-page">
+  <header class="admin-head">
+    <img src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <h1>Admin</h1>
+    <a class="btn btn-ghost" href="/app/">Open TeamForge</a>
+    <button class="btn btn-ghost" id="signout" type="button">Sign out</button>
+  </header>
+
+  <div id="message" class="message hidden" role="alert"></div>
+
+  <div class="stack">
+    <section class="panel">
+      <h2>Accounts</h2>
+      <p class="sub">Participants open the Participant workspace. Hosts also open Host.
+        Admins open all three, including Developer.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Role</th><th>Created</th><th>Last sign-in</th></tr></thead>
+          <tbody id="users"><tr><td colspan="4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Reset shared data</h2>
+      <p class="sub">Replaces all participants, projects, teams, skills and interest requests with the
+        sample data in the repository's <code>data/</code> folder. Accounts are kept. Use it after
+        regenerating the sample data, or to restart a demo. This cannot be undone.</p>
+      <div class="danger-row">
+        <input id="reset-confirm" placeholder="Type RESET to confirm" autocomplete="off">
+        <button class="btn btn-danger" id="reset" type="button">Reset shared data</button>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="/static/js/admin.js"></script>
+</body>
+</html>

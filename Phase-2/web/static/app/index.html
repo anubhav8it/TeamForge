@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge</title>
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+<link rel="stylesheet" href="/app/app.css">
+</head>
+<body class="app-page">
+<header class="app-bar">
+  <img src="/static/img/teamforge_mark_dark.png" alt="" class="app-mark">
+  <span class="app-name">TeamForge</span>
+  <span class="sync" id="sync" aria-live="polite"></span>
+  <span class="spacer"></span>
+  <span class="who" id="who"></span>
+  <a class="btn btn-ghost hidden" id="admin-link" href="/admin">Admin</a>
+  <button class="btn btn-ghost" id="signout" type="button">Sign out</button>
+</header>
+
+<div class="notice hidden" id="notice" role="status">
+  <span id="notice-text"></span>
+  <button class="btn btn-ghost" id="notice-reload" type="button">Reload</button>
+</div>
+
+<div class="app-scroll">
+  <div id="screen" class="app-screen"></div>
+  <div id="loading" class="app-overlay">
+    <img src="/static/img/teamforge_logo_dark.png" alt="TeamForge" class="overlay-logo">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loading-text">Loading TeamForge…</p>
+    <p class="overlay-sub">The first visit downloads the app (about 10–15 MB); later visits are faster.</p>
+  </div>
+</div>
+
+<script src="/app/qtloader.js"></script>
+<script src="/app/TeamForge.js"></script>
+<script src="/app/app.js"></script>
+</body>
+</html>

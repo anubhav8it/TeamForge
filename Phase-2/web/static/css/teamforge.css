@@ -1,0 +1,75 @@
+/* TeamForge web pages (sign-in, admin, app frame). Colours and type follow ui/Theme.qml. */
+@font-face { font-family: "Manrope"; src: url("/static/fonts/Manrope-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/static/fonts/Manrope-Medium.ttf") format("truetype"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/static/fonts/Manrope-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("/static/fonts/Manrope-ExtraBold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
+
+:root {
+  --sidebar: #1A1E25; --background: #20252D; --surface: #2A303A; --surface-raised: #343B47;
+  --surface-hover: #3D4552; --input: #1E232B; --border: #3A424F; --border-strong: #4E5868;
+  --text: #F8F9FB; --text-secondary: #D2D7DF; --text-muted: #A3ACB8;
+  --accent: #F0434A; --accent-hover: #FF5C62; --accent-pressed: #D2353C;
+  --success: #3DD598; --info: #5AB0FF; --warning: #FFB547; --violet: #A78BFA;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--background); color: var(--text);
+  font-family: "Manrope", system-ui, sans-serif; font-size: 16px; font-weight: 500; line-height: 1.45; }
+a { color: var(--info); }
+button, input, select { font: inherit; }
+.hidden { display: none !important; }
+
+/* ---------------------------------------------------------------- sign-in */
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+  background: radial-gradient(1200px 600px at 15% -10%, rgba(240, 67, 74, .16), transparent 60%),
+              radial-gradient(900px 500px at 110% 110%, rgba(167, 139, 250, .12), transparent 60%), var(--background); }
+.auth-card { width: 100%; max-width: 440px; }
+.auth-logo { display: block; width: 190px; max-width: 60%; margin: 0 auto 6px; }
+.auth-title { text-align: center; font-size: 30px; font-weight: 800; letter-spacing: 6px; margin: 4px 0 0; }
+.auth-tagline { text-align: center; color: var(--text-secondary); font-weight: 700; margin: 2px 0 26px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; }
+.tabs { display: flex; gap: 6px; background: var(--input); border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px; margin-bottom: 18px; }
+.tabs button { flex: 1; border: 0; border-radius: 9px; padding: 9px 10px; background: transparent;
+  color: var(--text-muted); font-weight: 700; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--surface-raised); color: var(--text); }
+.field { display: block; margin-bottom: 14px; }
+.field span { display: block; font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.field input { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--input); color: var(--text); outline: none; }
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 67, 74, .22); }
+.hint { font-size: 13px; color: var(--text-muted); margin: -6px 0 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0;
+  border-radius: 10px; padding: 11px 16px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.btn-primary { width: 100%; background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { background: var(--accent-pressed); }
+.btn-primary[disabled] { opacity: .6; cursor: progress; }
+.btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); padding: 6px 12px; }
+.btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+.message { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
+.message.error { background: rgba(240, 67, 74, .14); border: 1px solid rgba(240, 67, 74, .5); color: #FFD2D4; }
+.message.info { background: rgba(90, 176, 255, .12); border: 1px solid rgba(90, 176, 255, .45); color: #D6EBFF; }
+.auth-foot { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 16px; }
+
+/* ---------------------------------------------------------------- admin */
+.admin-page { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+.admin-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.admin-head img { height: 34px; }
+.admin-head h1 { font-size: 24px; font-weight: 800; margin: 0; flex: 1; }
+.admin-page h2 { font-size: 18px; font-weight: 800; margin: 0 0 4px; }
+.admin-page p.sub { color: var(--text-muted); margin: 0 0 14px; font-size: 14px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th { text-align: left; color: var(--text-muted); font-size: 13px; font-weight: 700; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+td select { background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.chip { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 800; letter-spacing: .5px; }
+.chip.participant { background: rgba(90, 176, 255, .16); color: var(--info); }
+.chip.host { background: rgba(240, 67, 74, .16); color: var(--accent-hover); }
+.chip.admin { background: rgba(167, 139, 250, .18); color: var(--violet); }
+.stack { display: grid; gap: 18px; }
+.danger-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.danger-row input { flex: 1; min-width: 160px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
+.btn-danger { background: transparent; border: 1px solid var(--accent); color: var(--accent-hover); }
+.btn-danger:hover { background: rgba(240, 67, 74, .14); }
