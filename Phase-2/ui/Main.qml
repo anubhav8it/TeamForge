@@ -14,8 +14,6 @@ ApplicationWindow {
 
     width: Math.min(1440, Screen.desktopAvailableWidth - 40)
     height: Math.min(900, Screen.desktopAvailableHeight - 40)
-    minimumWidth: 1100
-    minimumHeight: 660
     visible: true
     title: qsTr("TeamForge") + (Backend.workspace !== "" ? " — " + Theme.workspaceName(Backend.workspace) : "")
     color: Theme.background
@@ -100,91 +98,107 @@ ApplicationWindow {
         insights.showFit(studentId, requirementId)
     }
 
-    EntryScreen {
+    // On small screens (phones) the app keeps its 1100 x 660 layout and can be scrolled by dragging.
+    Flickable {
         anchors.fill: parent
-        visible: window.workspace === ""
-        onChosen: workspace => Backend.enterWorkspace(workspace)
-    }
+        contentWidth: appArea.width
+        contentHeight: appArea.height
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: window.width < 1100 || window.height < 660
 
-    RowLayout {
-        anchors.fill: parent
-        visible: window.workspace !== ""
-        spacing: 0
+        Item {
+            id: appArea
+            width: Math.max(window.width, 1100)
+            height: Math.max(window.height, 660)
 
-        Sidebar {
-            pages: window.pages
-            currentIndex: window.currentPage
-            compact: window.compact
-            navigationEnabled: window.workspace !== "participant" || Backend.myProfileId !== ""
-            Layout.fillHeight: true
-            Layout.preferredWidth: window.compact ? 72 : 252
-            Behavior on Layout.preferredWidth { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
-            onNavigate: index => window.go(index)
-        }
+            EntryScreen {
+                anchors.fill: parent
+                visible: window.workspace === ""
+                onChosen: workspace => Backend.enterWorkspace(workspace)
+            }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
+            RowLayout {
+                anchors.fill: parent
+                visible: window.workspace !== ""
+                spacing: 0
 
-            // Developer previewing another workspace: small, but always visible.
-            Rectangle {
-                visible: Backend.previewing
-                Layout.fillWidth: true
-                implicitHeight: 46
-                color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.14)
-                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.4) }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 24
-                    anchors.rightMargin: 12
-                    spacing: 12
-                    Chip {
-                        text: qsTr("DEVELOPER PREVIEW")
-                        tone: "tint"
-                        tint: Qt.lighter(Theme.violet, 1.2)
+                Sidebar {
+                    pages: window.pages
+                    currentIndex: window.currentPage
+                    compact: window.compact
+                    navigationEnabled: window.workspace !== "participant" || Backend.myProfileId !== ""
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: window.compact ? 72 : 252
+                    Behavior on Layout.preferredWidth { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
+                    onNavigate: index => window.go(index)
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 0
+
+                    // Developer previewing another workspace: small, but always visible.
+                    Rectangle {
+                        visible: Backend.previewing
+                        Layout.fillWidth: true
+                        implicitHeight: 46
+                        color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.14)
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.4) }
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 24
+                            anchors.rightMargin: 12
+                            spacing: 12
+                            Chip {
+                                text: qsTr("DEVELOPER PREVIEW")
+                                tone: "tint"
+                                tint: Qt.lighter(Theme.violet, 1.2)
+                            }
+                            TfText {
+                                text: qsTr("%1 workspace, with its permissions").arg(Theme.workspaceName(window.workspace))
+                                font.weight: Font.Bold
+                                color: Qt.lighter(Theme.violet, 1.3)
+                                Layout.fillWidth: true
+                            }
+                            Segmented {
+                                options: [{ text: qsTr("Participant"), value: "participant" }, { text: qsTr("Host"), value: "host" }]
+                                currentValue: window.workspace
+                                onActivated: value => Backend.previewWorkspace(value)
+                            }
+                            TfButton {
+                                text: qsTr("Back to Developer")
+                                compact: true
+                                onClicked: Backend.endPreview()
+                            }
+                        }
                     }
-                    TfText {
-                        text: qsTr("%1 workspace, with its permissions").arg(Theme.workspaceName(window.workspace))
-                        font.weight: Font.Bold
-                        color: Qt.lighter(Theme.violet, 1.3)
+
+                    TopBar {
+                        title: window.page.title ?? ""
+                        subtitle: window.page.subtitle ?? ""
+                        showProjectSwitcher: window.workspace === "host" && window.currentPage !== 1
                         Layout.fillWidth: true
                     }
-                    Segmented {
-                        options: [{ text: qsTr("Participant"), value: "participant" }, { text: qsTr("Host"), value: "host" }]
-                        currentValue: window.workspace
-                        onActivated: value => Backend.previewWorkspace(value)
+
+                    ErrorBanner {
+                        message: Backend.lastError
+                        Layout.fillWidth: true
+                        Layout.topMargin: shown ? 12 : 0
+                        onDismissed: Backend.clearError()
                     }
-                    TfButton {
-                        text: qsTr("Back to Developer")
-                        compact: true
-                        onClicked: Backend.endPreview()
+
+                    Loader {
+                        id: workspaceLoader
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        sourceComponent: window.workspace === "participant" ? participantWorkspace
+                                       : window.workspace === "host" ? hostWorkspace
+                                       : window.workspace === "developer" ? developerWorkspace : null
                     }
                 }
-            }
-
-            TopBar {
-                title: window.page.title ?? ""
-                subtitle: window.page.subtitle ?? ""
-                showProjectSwitcher: window.workspace === "host" && window.currentPage !== 1
-                Layout.fillWidth: true
-            }
-
-            ErrorBanner {
-                message: Backend.lastError
-                Layout.fillWidth: true
-                Layout.topMargin: shown ? 12 : 0
-                onDismissed: Backend.clearError()
-            }
-
-            Loader {
-                id: workspaceLoader
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                sourceComponent: window.workspace === "participant" ? participantWorkspace
-                               : window.workspace === "host" ? hostWorkspace
-                               : window.workspace === "developer" ? developerWorkspace : null
             }
         }
     }
