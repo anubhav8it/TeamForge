@@ -250,3 +250,30 @@
   start();
 })();
 
+
+// touchpad scrolling: turn many small steps into normal wheel steps for Qt
+let total = 0;
+window.addEventListener('wheel', function (e) {
+    if (!e.isTrusted || e.ctrlKey) return;
+    if (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 100) return;
+
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    total += e.deltaY;
+
+    if (Math.abs(total) >= 100) {
+        let step = total > 0 ? 100 : -100;
+        total -= step;
+        let target = e.composedPath()[0];
+        target.dispatchEvent(new WheelEvent('wheel', {
+            deltaY: step,
+            deltaMode: 0,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        }));
+    }
+}, { capture: true, passive: false });
+
