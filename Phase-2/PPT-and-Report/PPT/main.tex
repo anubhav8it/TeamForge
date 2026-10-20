@@ -1,0 +1,781 @@
+% ====================================================================
+%  TeamForge -- PBL Phase-II Evaluation (15 slides)
+%  Team DSCPP-III-2026-T238 | Graphic Era (Deemed to be University)
+%
+%  Main document for the presentation.  Compile with pdfLaTeX.
+%  Started from the original PPT/Phase-II.tex template (same class,
+%  colour names, logo macro, header/footer conventions) and rebuilt to
+%  match TeamForge_Phase_II_PPT_FINAL.pdf.
+%
+%  LAYOUT NOTE
+%  The page is 960 x 540 bp (13.333 in x 7.5 in) -- the same 16:9 size
+%  as the final PDF -- so every coordinate below is in PostScript
+%  points measured from the TOP-LEFT corner of the slide, exactly as in
+%  the source PDF.  Inside a  \begin{tikzpicture}[slide] ... picture,
+%  (x,y) means "x bp from the left edge, y bp down from the top edge".
+%  Text nodes are anchored on their first BASELINE.
+% ====================================================================
+\RequirePackage{fix-cm}             % scalable Computer Modern for any math size
+\documentclass[aspectratio=169,11pt]{beamer}
+\geometry{paperwidth=960bp,paperheight=540bp}
+
+% ------------------------------------------------------------------
+% PACKAGES
+% ------------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage{helvet}                 % Helvetica clone = Arial/Liberation Sans metrics
+\renewcommand{\sfdefault}{phv}
+\renewcommand{\ttdefault}{pcr}      % Courier = Courier New/Liberation Mono metrics
+\usefonttheme{professionalfonts}
+\usepackage{graphicx}
+\graphicspath{{./}{PPT/}}   % images resolve whether Overleaf compiles from this folder or the project root
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{colortbl}
+
+% ------------------------------------------------------------------
+% COLOURS  (sampled from the final PDF; names kept from the template)
+% ------------------------------------------------------------------
+\definecolor{GEUBlue}{HTML}{17375E}       % navy headings, rules, circles
+\definecolor{GEULightBlue}{HTML}{EAF1FA}  % light-blue panels
+\definecolor{GEUGrey}{HTML}{5F5F5F}       % secondary text
+\definecolor{TFText}{HTML}{1F1F1F}        % body text
+\definecolor{TFTitleGrey}{HTML}{595959}   % project title on slide 1
+\definecolor{TFGreen}{HTML}{1E8449}       % Completed / Pass / Fixed
+\definecolor{TFOrange}{HTML}{B9770E}      % In progress / Open / pending
+\definecolor{TFRowLine}{HTML}{D0D7E2}     % thin table separators
+\definecolor{TFShotBorder}{HTML}{A6B4C8}  % screenshot frames
+\definecolor{BarCoverage}{HTML}{D0383A}
+\definecolor{BarComplement}{HTML}{12907E}
+\definecolor{BarExperience}{HTML}{C27C0E}
+\definecolor{BarEngagement}{HTML}{2D74C4}
+\definecolor{BarDiversity}{HTML}{7952C6}
+
+% ------------------------------------------------------------------
+% LOGO  (original asset from PHASE 2 TEX ZIP)
+% ------------------------------------------------------------------
+\newcommand{\GEULogo}{graphicera_logo.png}
+
+% ------------------------------------------------------------------
+% HELPERS
+% ------------------------------------------------------------------
+\newcommand{\fs}[2]{\fontsize{#1bp}{#2bp}\selectfont}   % size / leading in bp
+
+\tikzset{
+  slide/.style={remember picture,overlay,x=1bp,y=-1bp,
+                shift={(current page.north west)}},
+  txt/.style={inner sep=0pt,outer sep=0pt,text=TFText},
+  L/.style={txt,anchor=base west},     % left-aligned, at baseline
+  C/.style={txt,anchor=base},          % centred, at baseline
+  R/.style={txt,anchor=base east},     % right-aligned, at baseline
+  M/.style={txt,anchor=west,yshift=-2.1bp}, % left-aligned, vertically centred in a box
+  arr/.style={GEUBlue,line width=1.5bp,-{Triangle[length=6bp,width=6bp]}},
+  darr/.style={GEUBlue,line width=1.5bp,
+               {Triangle[length=6bp,width=6bp]}-{Triangle[length=6bp,width=6bp]}},
+}
+
+% \panel[fill]{x}{y}{w}{h}  : rounded light-blue panel
+\newcommand{\panel}[5][GEULightBlue]{%
+  \fill[#1,rounded corners=5bp] (#2,#3) rectangle ++(#4,#5);}
+% \obox[border]{x}{y}{w}{h} : white box with navy outline
+\newcommand{\obox}[5][GEUBlue]{%
+  \filldraw[fill=white,draw=#1,line width=1bp,rounded corners=4bp]
+     (#2,#3) rectangle ++(#4,#5);}
+% \numc{cx}{cy}{diameter}{n} : navy numbered circle
+\newcommand{\numc}[4]{%
+  \fill[GEUBlue] (#1,#2) circle[radius=#3/2];
+  \node[txt,text=white,font=\fs{14}{16}\bfseries] at (#1,#2) {#4};}
+% \monoarrow : an arrow as wide as one monospace character
+\newcommand{\monoarrow}{\makebox[0.6em]{\resizebox{0.6em}{!}{$\rightarrow$}}}
+% \tri : the black triangle bullet used in the final deck
+\newcommand{\tri}{\tikz[baseline=0pt,x=1em,y=1em]{\path (0,0) (0.093,0);\fill[TFText] (0.093,0.161) -- (0.093,0.964) -- (0.789,0.5625) -- cycle;}}
+% tflist{label width}{extra space between items}
+\newenvironment{tflist}[2]{%
+  \begin{list}{\tri}{\setlength\leftmargin{#1}\setlength\labelwidth{#1}%
+    \setlength\labelsep{0pt}\setlength\itemsep{#2}\setlength\parsep{0pt}%
+    \setlength\topsep{0pt}\setlength\partopsep{0pt}\setlength\itemindent{0pt}%
+    \setlength\rightmargin{0pt}\setlength\listparindent{0pt}%
+    \renewcommand\makelabel[1]{##1\hfil}}}{\end{list}}
+
+% \uline{text}: thin underline just below the baseline (used for URLs)
+\newcommand{\uline}[1]{\setbox0=\hbox{#1}\rlap{\rule[-1.0bp]{\wd0}{0.8bp}}\box0}
+
+% table helpers ----------------------------------------------------
+\newcommand{\TFragged}{\leftskip=0pt\rightskip=0pt plus 1fil\parfillskip=0pt plus 1fil\relax}
+\newcolumntype{P}[1]{>{\TFragged\arraybackslash}m{#1}}
+\newcommand{\TFcentre}{\leftskip=0pt plus 1fil\rightskip=0pt plus 1fil\parfillskip=0pt\parindent=0pt\relax}
+\newcolumntype{Q}[1]{>{\TFcentre\arraybackslash}m{#1}}
+% \RH{h} : forces a table row to be exactly h bp tall (text centred)
+\newcommand{\RH}[1]{\ensuremath{\vcenter{\hrule height #1bp width 0pt}}}
+\setlength{\aboverulesep}{0pt}
+\setlength{\belowrulesep}{0pt}
+\setlength{\tabcolsep}{6bp}
+\newcommand{\toprl}{\arrayrulecolor{TFText}\toprule[1.3bp]}
+\newcommand{\headrl}{\arrayrulecolor{TFText}\midrule[0.65bp]}
+\newcommand{\botrl}{\arrayrulecolor{TFText}\bottomrule[1.3bp]}
+\newcommand{\rowrl}[1]{\arrayrulecolor{TFRowLine}\cmidrule[0.45bp]{#1}}
+\newcommand{\Done}{\textcolor{TFGreen}{\textbf{Completed}}}
+\newcommand{\Pass}{\textcolor{TFGreen}{\textbf{Pass}}}
+\newcommand{\Fixed}{\textcolor{TFGreen}{\textbf{Fixed}}}
+
+% ------------------------------------------------------------------
+% BEAMER SETTINGS
+% ------------------------------------------------------------------
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=TFText,bg=white}
+\setbeamercolor{frametitle}{fg=GEUBlue}
+\setbeamercolor{structure}{fg=GEUBlue}
+
+% HEADER: Graphic Era logo, top-right
+\setbeamertemplate{headline}{%
+  \begin{tikzpicture}[slide]
+    \node[anchor=north west,inner sep=0pt] at (885.6,14.4)
+      {\includegraphics[width=46.8bp]{\GEULogo}};
+  \end{tikzpicture}}
+
+% FRAME TITLE: navy bold title + navy horizontal rule
+\setbeamertemplate{frametitle}{%
+  \begin{tikzpicture}[slide]
+    \node[L,text=GEUBlue,font=\fs{30}{36}\bfseries] at (43.2,71.0) {\insertframetitle};
+    \draw[GEUBlue,line width=1.5bp] (43.2,93.6) -- (916.6,93.6);
+  \end{tikzpicture}}
+
+% FOOTER: department line (left) + slide number (right)
+\setbeamertemplate{footline}{%
+  \begin{tikzpicture}[slide]
+    \node[L,text=GEUBlue,font=\fs{10}{12}] at (43.2,520.2)
+      {Department of Computer Science \& Engineering --- Graphic Era (Deemed to be University)};
+    \node[R,text=GEUBlue,font=\fs{10}{12}] at (916.6,520.2)
+      {\insertframenumber/\inserttotalframenumber};
+  \end{tikzpicture}}
+
+% ------------------------------------------------------------------
+% DOCUMENT INFORMATION
+% ------------------------------------------------------------------
+\title{Project-Based Learning -- Phase-II Evaluation}
+\subtitle{TeamForge -- Skill-Based Hackathon \& Project Team Matchmaker}
+\author{Team DSCPP-III-2026-T238}
+\institute{Department of Computer Science \& Engineering\\
+           Graphic Era (Deemed to be University), Dehradun}
+\date{Academic Session 2026--27}
+
+% ====================================================================
+\begin{document}
+\frenchspacing   % single space after full stops, as in the source deck
+% ====================================================================
+
+% ====================================================================
+% SLIDE 1 -- TITLE
+% ====================================================================
+\begin{frame}[plain]
+\begin{tikzpicture}[slide]
+  \node[anchor=north west,inner sep=0pt] at (867.6,18.0)
+    {\includegraphics[width=68.4bp]{\GEULogo}};
+
+  \node[C,text=GEUBlue,font=\fs{54}{60}\bfseries] at (480,140.6) {PROJECT-BASED LEARNING};
+  \node[C,font=\fs{32}{38}] at (480,187.2) {PHASE-II EVALUATION};
+  \node[C,text=GEUBlue,font=\fs{20}{24}\bfseries] at (480,239.8) {Project Title};
+  \node[C,text=TFTitleGrey,font=\fs{34}{41}\bfseries,text width=900bp,align=flush center] at (480,286.8)
+    {TeamForge -- Skill-Based Hackathon \& Project\\Team Matchmaker};
+  \node[C,text=GEUBlue,font=\fs{20}{24}] at (480,371.8) {Team ID: DSCPP-III-2026-T238};
+
+  \node[C,font=\fs{20}{24}\bfseries] at (480,437.8) {Department of Computer Science \& Engineering};
+  \node[C,font=\fs{18}{22}] at (480,463.2) {Graphic Era (Deemed to be University), Dehradun};
+  \node[C,font=\fs{14}{17}] at (480,483.0) {Academic Session 2026--27};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 2 -- TEAM & MENTOR DETAILS
+% ====================================================================
+\begin{frame}{Team \& Mentor Details}
+\begin{tikzpicture}[slide]
+  \panel{43.2}{115.2}{414.0}{219.6}
+  \panel{475.2}{115.2}{441.4}{219.6}
+  \panel{43.2}{356.4}{873.4}{90.0}
+
+  % --- Team information
+  \node[L,text=GEUBlue,font=\fs{20}{24}\bfseries] at (61.2,148.8) {Team Information};
+  \foreach \lab/\val [count=\i from 0] in {
+      Team Name:/TEAMFORGE,
+      Team ID:/DSCPP-III-2026-T238,
+      Semester:/III,
+      Sections:/{ML2, ML1, DS2, ML3},
+      Domain:/{DSA + OOP with C++}} {
+    \node[L,font=\fs{17}{20}\bfseries] at (61.2,182.4+28.5*\i) {\lab};
+    \node[L,font=\fs{17}{20}]          at (187.2,182.4+28.5*\i) {\val};
+  }
+
+  % --- Team members & roles
+  \node[L,text=GEUBlue,font=\fs{20}{24}\bfseries] at (493.2,148.8) {Team Members \& Roles};
+  \foreach \nm/\rl [count=\i] in {
+      {Mukul Fartiyal -- 2510370466}/{Team Lead \textperiodcentered{} Integration \& web deployment},
+      {Anubhav Bisht -- 2510370178}/{Qt UI, testing \& documentation},
+      {Siddhant Singh -- 2510380233}/{C++ / OOP design},
+      {Mehul -- 2510370093}/{DSA \& matching}} {
+    \node[L,text=GEUBlue,font=\fs{16}{19}] at (493.2,181.6+41.67*\i-41.67) {\i.};
+    \node[L,font=\fs{16}{19}]              at (518.4,181.6+41.67*\i-41.67) {\nm};
+    \node[L,text=GEUGrey,font=\fs{12}{14}] at (518.4,196.5+41.67*\i-41.67) {\rl};
+  }
+
+  % --- Mentor
+  \node[L,text=GEUBlue,font=\fs{20}{24}\bfseries] at (61.2,387.8) {Mentor};
+  \node[L,font=\fs{18}{22}] at (61.2,423.2) {Dr. Hriday Kumar Gupta};
+  \node[L,font=\fs{17}{20}\bfseries] at (607.1,422.4) {Interactions completed:};
+  \draw[TFText,line width=1bp] (810.0,428.4) -- (900.0,428.4); % left blank as in the source
+
+  \node[L,text=GEUGrey,font=\fs{13}{16}] at (43.2,480.3)
+    {Roles follow the Phase-II report task allocation; each member demonstrates their own module.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 3 -- PHASE-I RECAP & FEEDBACK INCORPORATED
+% ====================================================================
+\begin{frame}{Phase-I Recap \& Feedback Incorporated}
+\begin{tikzpicture}[slide]
+  \panel{43.2}{111.6}{873.4}{75.6}
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (61.2,138.2) {Phase-I Status};
+  \node[L,align=flush left,text width=837.4bp,font=\fs{15}{18}] at (61.2,160.8)
+    {Proposed a skill-based team matchmaker in C++/Qt. Topic approved on 31 Aug 2026;
+     users, architecture, five-factor score and roles were fixed.};
+
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,223.2) {Feedback Received};
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (504.0,223.2) {Changes Incorporated};
+
+  \foreach \fb/\ch [count=\i from 0] in {
+      {Availability (timetable) data is hard to collect reliably.}/
+      {Availability replaced by \textbf{engagement} at the same 10\% weight (1.0 if interested in the project, else 0.5).},
+      {A score alone does not explain why someone is suggested.}/
+      {\textbf{Match insights} show the factor-by-factor and skill-by-skill breakdown.},
+      {The prototype should be easy to try and demonstrate.}/
+      {The same app now runs \textbf{in the browser} (WebAssembly) with sign-in and shared data.}} {
+    \panel{43.2}{236.2+61.2*\i}{421.2}{51.8}
+    \obox{504.0}{236.2+61.2*\i}{412.6}{51.8}
+    \node[M,font=\fs{14}{17}] at (57.6,262.1+61.2*\i) {\fb};
+    \node[M,text width=383.8bp,align=flush left,font=\fs{14}{17}] at (518.4,262.1+61.2*\i) {\ch};
+    \draw[arr] (469.4,262.1+61.2*\i) -- (499.0,262.1+61.2*\i);
+  }
+
+  % --- five-factor score strip
+  \node[L,text=GEUBlue,font=\fs{16}{19}\bfseries] at (43.2,458.6) {Five-factor score};
+  \node[L,text=GEUGrey,font=\fs{12}{14}] at (43.2,473.5) {weights total 100\%};
+  \foreach \pc/\nm [count=\i from 0] in {40\%/Coverage, 25\%/Complementarity,
+                                         15\%/Experience, 10\%/Diversity} {
+    \pgfmathsetmacro{\bx}{ifthenelse(\i<3, 205.2+142.55*\i, 775.4)}
+    \panel{\bx}{428.4}{131.8}{61.2}
+    \node[C,text=GEUBlue,font=\fs{20}{24}\bfseries] at (\bx+65.9,459.8) {\pc};
+    \node[C,text=GEUBlue,font=\fs{12}{14}] at (\bx+65.9,475.5) {\nm};
+  }
+  % highlighted new factor
+  \panel[GEUBlue]{632.9}{428.4}{131.8}{61.2}
+  \node[C,text=white,font=\fs{20}{24}\bfseries] at (698.8,459.8) {10\%};
+  \node[C,text=white,font=\fs{12}{14}] at (698.8,475.5) {Engagement (new)};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 4 -- PROBLEM STATEMENT & FINALIZED OBJECTIVES
+% ====================================================================
+\begin{frame}{Problem Statement \& Finalized Objectives}
+\begin{tikzpicture}[slide]
+  \panel{43.2}{111.6}{873.4}{108.0}
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (61.2,140.2) {Problem Statement};
+  \node[L,align=flush left,text width=837.4bp,font=\fs{16}{19}] at (61.2,165.6)
+    {Teams formed through friends often repeat skills and miss roles. TeamForge compares the
+     skills a project needs with the skills students offer, ranks candidates with an explained
+     compatibility score, and shows what the team still lacks.};
+
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,255.2) {Finalized Objectives};
+  \node[L,text=GEUGrey,font=\fs{13}{16}\bfseries] at (622.8,253.3) {Evidence in the current build};
+
+  \foreach \ob/\ev [count=\i from 0] in {
+      {Participants create skill profiles (levels 1--5) and express interest in projects.}/
+      {Participant workspace; 86 sample interest requests},
+      {Hosts get a ranked, explained shortlist from the 560-profile sample dataset.}/
+      {Match insights; 82.2 score checked by hand},
+      {Build teams with live skill-coverage and gap checks, and save them.}/
+      {Team builder: duplicates, team size, missing skills},
+      {Apply TCS-302 data structures and a TCS-307 OOP design in the matching engine.}/
+      {Developer workspace shows index, AVL height, BFS},
+      {Offer the same application online with accounts and shared data.}/
+      {Live site; 52 server API checks pass}} {
+    \pgfmathsetmacro{\cy}{288.7+44.65*\i}
+    \numc{58.3}{\cy}{30.2}{\the\numexpr\i+1\relax}
+    \node[M,text width=520bp,align=flush left,font=\fs{15}{18}] at (86.4,\cy) {\ob};
+    \node[M,text=GEUGrey,font=\fs{12}{14}\itshape] at (622.8,\cy) {\ev};
+  }
+  \foreach \y in {312.1,356.7,401.4,446.0}
+    \draw[TFRowLine,line width=0.5bp] (86.4,\y) -- (916.6,\y);
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 5 -- UPDATED SYSTEM ARCHITECTURE / WORKFLOW
+% ====================================================================
+\begin{frame}{Updated System Architecture / Workflow}
+\begin{tikzpicture}[slide]
+  % --- five-stage pipeline
+  % title / body / title baseline (2-line bodies sit lower than 3-line bodies)
+  \foreach \ttl/\body/\tb [count=\i from 0] in {
+      Input/{QML screens: Participant, Host, Developer}/151.8,
+      Processing/{TeamForgeController bridge: permissions, validation}/144.6,
+      Core Logic/{Index, AVL, BFS, heap top-k, strategy, greedy suggest}/144.6,
+      Storage/{JSON files (desktop) / PostgreSQL (web)}/151.8,
+      Output/{Ranked list, match insights, team + skill gaps}/151.8} {
+    \filldraw[fill=GEULightBlue,draw=GEUBlue,line width=1bp,rounded corners=5bp]
+      (43.2+180*\i,115.2) rectangle ++(153.4,90);
+    \node[C,font=\fs{15}{17}\bfseries] at (119.9+180*\i,\tb) {\ttl};
+    \node[C,align=flush center,text width=141bp,font=\fs{12}{14.4}] at (119.9+180*\i,\tb+15) {\body};
+  }
+  \foreach \i in {0,...,3}
+    \draw[arr] (198.0+180*\i,160.2) -- (221.8+180*\i,160.2);
+
+  \node[L,text=GEUGrey,font=\fs{13}{16}\itshape] at (43.2,229.3)
+    {Screens never compute scores: QML calls the bridge, the bridge calls the C++ core, and results come back as data.};
+
+  % --- components / changes
+  \node[L,text=GEUBlue,font=\fs{17}{20}\bfseries] at (43.2,264.4) {Major Components};
+  \node[L,text=GEUBlue,font=\fs{17}{20}\bfseries] at (504.0,264.4) {Changes Since Phase-I};
+  \node[L,align=flush left,text width=414bp,font=\fs{14}{16}] at (43.2,288.0-16) {%
+    \begin{tflist}{16bp}{7bp}
+      \item C++17 core (\texttt{src/core}): matching engine + data structures, no Qt types in headers
+      \item \texttt{TeamForgeController} bridge to 51 QML screens
+      \item Python server + PostgreSQL for the web version
+    \end{tflist}};
+  \node[L,align=flush left,text width=412bp,font=\fs{14}{16}] at (504.0,288.0-16) {%
+    \begin{tflist}{16bp}{6.5bp}
+      \item Participant, Host and Developer workspaces
+      \item Interest workflow: apply, review, accept / decline
+      \item Browser build with versioned saves
+    \end{tflist}};
+
+  % --- web deployment path
+  \panel{43.2}{385.2}{873.4}{108.0}
+  \node[L,text=GEUBlue,font=\fs{15}{18}\bfseries] at (61.2,410.8) {Web deployment path};
+  \obox{61.2}{421.2}{309.6}{61.2}
+  \obox{442.8}{421.2}{244.8}{61.2}
+  \obox{748.8}{421.2}{151.2}{61.2}
+  \node[txt,align=flush center,font=\fs{11}{13},yshift=-2.2bp] at (216.0,451.8)
+    {{\fs{13}{16}\bfseries Browser (WebAssembly app)}\\QML $\rightarrow$ Bridge $\rightarrow$ C++ core};
+  \node[txt,align=flush center,font=\fs{11}{13},yshift=-2.2bp] at (565.2,451.8)
+    {{\fs{13}{16}\bfseries Python server}\\Sign-in (salted PBKDF2, HttpOnly cookies),\\roles, versioned saves};
+  \node[txt,align=flush center,font=\fs{11}{13},yshift=-2.2bp] at (824.4,451.8)
+    {{\fs{13}{16}\bfseries PostgreSQL}\\Accounts + JSON data};
+  \draw[darr] (372.4,452.2) -- (441.2,452.2);
+  \draw[darr] (689.4,452.2) -- (747.2,452.2);
+  \node[L,text=GEUBlue,font=\fs{10}{12}] at (372.7,438.9) {HTTPS \textperiodcentered{} JSON};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 6 -- MODULE DESIGN & FUNCTIONAL REQUIREMENTS
+% ====================================================================
+\begin{frame}{Module Design \& Functional Requirements}
+\begin{tikzpicture}[slide]
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,129.2) {Major Modules};
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (572.4,129.2) {Functional Requirements};
+
+  % module cards: x / y / title / classes (monospace) / description / description offset
+  \foreach \x/\y/\ttl/\cls/\dsc/\dy in {
+      43.2/142.5/{1. Profiles \& Projects}/{Student, ProjectRequirement,\newline Repository<T>}/{Skill profiles (levels 1--5) and project requirements}/71.0,
+      298.8/142.5/{2. Matching Engine}/{SkillIndex \monoarrow{} MatchingStrategy \monoarrow\newline rankTopK \monoarrow{} suggestTeam}/{Retrieve, score, rank and suggest}/71.0,
+      43.2/259.2/{3. Team \& Interest}/{Team, InterestRequest}/{Team validation; apply, review, accept / decline}/58.3,
+      298.8/259.2/{4. Storage \& Web}/{JsonStorage, Python server}/{Versioned JSON locally; PostgreSQL online}/58.3} {
+    \panel{\x}{\y}{244.8}{105.8}
+    \node[L,text=GEUBlue,font=\fs{15}{18}\bfseries] at (\x+12.9,\y+23.3) {\ttl};
+    \node[L,align=flush left,text width=219bp,font=\fs{11}{13.2}\ttfamily] at (\x+12.9,\y+40.7) {\cls};
+    \node[L,text=GEUGrey,align=flush left,text width=219bp,font=\fs{12}{15}] at (\x+12.9,\y+\dy) {\dsc};
+  }
+
+  \node[L,align=flush left,text width=345bp,font=\fs{14}{17}] at (572.4,156.0-17) {%
+    \begin{tflist}{16bp}{6bp}
+      \item Create and edit profiles with skill autocomplete (AVL prefix search)
+      \item Rank candidates with the five-factor score
+      \item Build, suggest and save teams with a gap check (duplicates, size, missing skills)
+      \item Express interest; host reviews, accepts or declines
+      \item Sign in online; shared data with conflict-safe versioned saves
+    \end{tflist}};
+
+  % --- module dependency chain
+  \panel{43.2}{385.2}{873.4}{108.0}
+  \node[L,text=GEUBlue,font=\fs{15}{18}\bfseries] at (61.2,410.8) {Module Dependency};
+  \foreach \x/\w/\t in {61.2/111.6/{UI (QML)}, 197.3/90.0/Bridge, 311.7/144.0/{Matching Engine},
+                         480.2/205.2/{Profiles / Team / Interest}, 709.9/97.2/Storage} {
+    \obox{\x}{421.2}{\w}{32.4}
+    \node[txt,text=GEUBlue,font=\fs{13}{16}\bfseries] at (\x+\w/2,437.4) {\t};
+  }
+  \foreach \a/\b in {173.6/194.4, 288.1/308.9, 456.5/477.4, 686.2/707.1}
+    \draw[arr] (\a,437.4) -- (\b,437.4);
+  \node[L,text=GEUGrey,font=\fs{13}{16}] at (61.2,479.3)
+    {On every profile change the engine updates the hash index, AVL tree and skill graph through one update path, so they stay in sync.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 7 -- TECHNOLOGY STACK & DEVELOPMENT METHODOLOGY
+% ====================================================================
+\begin{frame}{Technology Stack \& Development Methodology}
+\begin{tikzpicture}[slide]
+  \panel{43.2}{111.6}{486.0}{284.4}
+  \node[L,text=GEUBlue,font=\fs{19}{23}\bfseries] at (61.2,141.0) {Technology Stack};
+  \foreach \lab/\val [count=\i from 0] in {
+      Programming/{C++17, QML, Python},
+      Storage/{JSON files, PostgreSQL},
+      Framework/{Qt 6.12, Qt for WebAssembly},
+      Tools/{Qt Creator, CMake, Emscripten 5.0.5},
+      Deployment/{GitHub Actions, Docker, Render},
+      Version control/{Git / GitHub}} {
+    \node[L,font=\fs{15}{18}\bfseries] at (61.2,178.8+37.6*\i) {\lab};
+    \node[L,font=\fs{15}{18}]          at (208.8,178.8+37.6*\i) {\val};
+  }
+
+  \node[L,text=GEUBlue,font=\fs{19}{23}\bfseries] at (550.8,134.0) {Development Methodology};
+  \foreach \st [count=\i from 0] in {Requirement Analysis, System Design,
+                                     Module Development, Integration} {
+    \panel{550.8}{151.2+48.95*\i}{365.8}{39.6}
+    \numc{572.75}{171.0+48.95*\i}{29.5}{\the\numexpr\i+1\relax}
+    \node[L,font=\fs{15}{18}] at (597.6,176.8+48.95*\i) {\st};
+  }
+  % step 5 -- still in progress
+  \filldraw[fill=white,draw=TFOrange,line width=1.3bp,rounded corners=5bp]
+    (550.8,347.0) rectangle ++(365.8,39.6);
+  \numc{572.75}{366.8}{29.5}{5}
+  \node[L,font=\fs{15}{18}] at (597.6,372.6) {Testing \& Validation};
+  \node[R,text=TFOrange,font=\fs{12}{14}\bfseries] at (907.6,371.6) {in progress};
+
+  \node[L,align=flush left,text width=866bp,font=\fs{14}{17}] at (43.2,428.0)
+    {\textcolor{GEUBlue}{\textbf{Why this stack:}} Qt keeps the whole project in C++ and runs the
+     same C++ and QML code on Windows and in the browser. Each module has its own Qt Test program
+     (7 in total); GitHub Actions rebuilds the WebAssembly app on every change, and Render runs our
+     Dockerfile with a Render Postgres database.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 8 -- IMPLEMENTATION OF PBL COURSE CONCEPTS
+% ====================================================================
+\begin{frame}{Implementation of PBL Course Concepts}
+\begin{tikzpicture}[slide]
+  \node[txt,anchor=north west,font=\fs{13}{15.6}] at (43.2,107.35) {%
+  \begin{tabular}{@{}c@{\hspace{\tabcolsep}}P{157.2bp}P{448.8bp}P{231.4bp}}
+  \toprl
+  \RH{25.62} & \textbf{Course} & \textbf{Concepts Actually Implemented} & \textbf{Project Module}\\
+  \headrl
+  \RH{26.05} & \raisebox{3bp}{\smash{\parbox[t]{157.2bp}{\textbf{Data Structures with C\\(TCS-302)}}}}
+             & Hash map: skill $\rightarrow$ students & \texttt{SkillIndex}\\ \rowrl{3-4}
+  \RH{26.25} & & AVL tree with rotations; prefix search for skill autocomplete & \texttt{SkillBST}\\ \rowrl{3-4}
+  \RH{26.15} & & Graph + BFS for related skills & \texttt{SkillGraph}\\ \rowrl{3-4}
+  \RH{26.15} & & Min-heap (priority queue) top-k ranking in O(n log k); sorting, searching & \texttt{rankTopK}\\ \rowrl{3-4}
+  \RH{26.05} & & Greedy team suggestion & \texttt{suggestTeam}\\
+  \headrl
+  \RH{34.65} & \raisebox{6.2bp}{\smash{\parbox[t]{157.2bp}{\textbf{OOP with C++ (TCS-307)}}}}
+             & Classes, encapsulation, validated constructors & \texttt{Student, ProjectRequirement, Team}\\ \rowrl{3-4}
+  \RH{34.55} & & Abstract class, virtual functions, polymorphism (weighted \& coverage-only strategies) & \texttt{MatchingStrategy}\\ \rowrl{3-4}
+  \RH{26.25} & & Class templates & \texttt{Repository<T>}\\ \rowrl{3-4}
+  \RH{26.15} & & Operator overloading & \texttt{MatchResult}\\ \rowrl{3-4}
+  \RH{26.15} & & Exception hierarchy and input validation & \texttt{TeamForgeError}\\ \rowrl{3-4}
+  \RH{25.72} & & File I/O (versioned JSON); smart pointers & \texttt{JsonStorage}\\
+  \botrl
+  \end{tabular}};
+
+  \panel{43.2}{450.0}{873.4}{43.2}
+  \node[C,font=\fs{15}{18}] at (479.9,477.8)
+    {\textcolor{GEUBlue}{\textbf{Live proof:}} the Developer workspace shows the skill index, AVL tree height and BFS related skills on screen.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 9 -- DEVELOPMENT & IMPLEMENTATION PROGRESS
+% ====================================================================
+\begin{frame}{Development \& Implementation Progress}
+\begin{tikzpicture}[slide]
+  \node[txt,anchor=north west,font=\fs{14}{16.8}] at (43.2,107.35) {%
+  \begin{tabular}{@{}c@{\hspace{\tabcolsep}}P{225.6bp}P{114bp}P{497.8bp}}
+  \toprl
+  \RH{29.22} & \textbf{Module} & \textbf{Status} & \textbf{Work Completed / Remaining}\\
+  \headrl
+  \RH{29.65} & Domain model \& validation & \Done & Student, Project, Team, Interest; exception hierarchy\\ \rowrl{2-4}
+  \RH{29.77} & Matching engine \& DSA & \Done & Index, AVL, graph, heap ranking, two strategies, greedy suggestion\\ \rowrl{2-4}
+  \RH{29.77} & Qt UI (3 workspaces) & \Done & 51 QML screens, 25 reusable components, Match insights, 3D entry screen\\ \rowrl{2-4}
+  \RH{29.77} & Storage \& sample data & \Done & Versioned JSON, SHA-256 seed stamp, backups, fixed-seed generator\\ \rowrl{2-4}
+  \RH{29.77} & Interest workflow & \Done & Apply, review, accept / decline\\ \rowrl{2-4}
+  \RH{29.77} & Web version & \Done & WebAssembly, sign-in, PostgreSQL, Render\\ \rowrl{2-4}
+  \RH{29.77} & Testing \& validation & \textcolor{TFOrange}{\textbf{In Progress}} & Server and web checks pass; full Qt Test run still to be recorded\\ \rowrl{2-4}
+  \RH{29.42} & Strategy study \& final docs & \textcolor{GEUGrey}{\textbf{Pending}} & Weighted vs coverage-only comparison; README; Phase-III report\\
+  \botrl
+  \end{tabular}};
+
+  \panel{43.2}{399.6}{216.0}{75.6}
+  \panel{277.2}{399.6}{158.4}{75.6}
+  \panel{453.6}{399.6}{158.4}{75.6}
+  \panel{630.0}{399.6}{286.6}{75.6}
+  \node[C,text=TFGreen,font=\fs{26}{31}\bfseries] at (151.2,440.5) {6 of 8};
+  \node[C,font=\fs{12}{14}] at (151.2,457.5) {modules completed (75\% by count)};
+  \node[C,text=TFOrange,font=\fs{26}{31}\bfseries] at (356.4,440.5) {1};
+  \node[C,font=\fs{12}{14}] at (356.4,457.5) {in progress};
+  \node[C,text=GEUGrey,font=\fs{26}{31}\bfseries] at (532.8,440.5) {1};
+  \node[C,font=\fs{12}{14}] at (532.8,457.5) {pending};
+  \node[L,text=GEUBlue,font=\fs{13}{16}\bfseries] at (644.4,425.3) {Sample dataset (fixed seed)};
+  \node[L,align=flush left,text width=262bp,font=\fs{13}{16}] at (644.4,444.3)
+    {560 participants \textperiodcentered{} 8 projects \textperiodcentered{} 549 skills \textperiodcentered{} 86 interest requests};
+
+  \node[L,text=GEUGrey,font=\fs{11}{13}\itshape] at (43.2,494.7)
+    {Overall Project Completion is stated as a module count (6 of 8); it is not a separately measured completion score.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 10 -- WORKING PROTOTYPE / DEMONSTRATION
+% ====================================================================
+\begin{frame}{Working Prototype / Demonstration}
+\begin{tikzpicture}[slide]
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,126.2) {Implemented Features};
+  \node[L,align=flush left,text width=440bp,font=\fs{15}{18}] at (43.2,151.8-18) {%
+    \begin{tflist}{16bp}{6bp}
+      \item Workspace entry with 3D logo
+      \item Ranked best matches per project
+    \end{tflist}};
+  \node[L,align=flush left,text width=412bp,font=\fs{15}{18}] at (504.0,151.8-18) {%
+    \begin{tflist}{16bp}{6bp}
+      \item ``Why this match?'' factor breakdown
+      \item Team builder, sign-in and shared data online
+    \end{tflist}};
+
+  % real screenshots of the running application (unaltered)
+  \foreach \x/\f/\cap in {
+      43.2/screenshot_entry/{Entry screen},
+      339.45/screenshot_host_overview/{Host overview: best matches},
+      635.7/screenshot_match_insights/{Match insights: 82.2 / 100}} {
+    \node[anchor=north west,inner sep=0pt] at (\x,198.0)
+      {\includegraphics[width=280.8bp]{assets/\f.jpg}};
+    \draw[TFShotBorder,line width=0.75bp] (\x,198.0) rectangle ++(280.8,157.95);
+    \node[C,text=GEUGrey,font=\fs{12}{14}] at (\x+140.4,375.5) {\cap};
+  }
+
+  \node[L,font=\fs{14}{17}] at (43.2,406.0)
+    {Screenshots of the working application, captured from the live site
+     \href{https://teamforge-geu.onrender.com}{\textbf{\uline{teamforge-geu.onrender.com}}}. Live demo during the presentation.};
+
+  \panel{43.2}{424.8}{873.4}{66.2}
+  \node[L,text=GEUBlue,font=\fs{15}{18}\bfseries] at (61.2,463.8) {Demo flow};
+  \foreach \x/\w/\t in {165.6/133.2/{Enter Host workspace}, 315.4/133.2/{Open CampusConnect},
+                         465.1/111.6/{Find teammates}, 593.3/115.2/{Why this match?},
+                         725.0/169.2/{Add to team; check gaps}} {
+    \obox{\x}{441.3}{\w}{33.1}
+    \node[txt,font=\fs{12}{14}] at (\x+\w/2,457.85) {\t};
+  }
+  \foreach \a/\b in {299.4/313.2, 449.2/463.0, 577.3/591.2, 709.1/722.9}
+    \draw[arr] (\a,457.9) -- (\b,457.9);
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 11 -- TESTING, RESULTS & VALIDATION
+% ====================================================================
+\begin{frame}{Testing, Results \& Validation}
+\begin{tikzpicture}[slide]
+  \node[txt,anchor=north west,font=\fs{12}{14.4}] at (43.2,103.75) {%
+  \begin{tabular}{@{}c@{\hspace{\tabcolsep}}P{258bp}P{200.4bp}P{274.5bp}P{92.5bp}}
+  \toprl
+  \RH{24.93} & \textbf{Test / Module} & \textbf{Expected Result} & \textbf{Observed Result} & \textbf{Status}\\
+  \headrl
+  \RH{25.35} & Core compile (g++ -Wall -Wextra -Wpedantic) & No warnings & 15 core files, 0 warnings & \Pass\\ \rowrl{2-5}
+  \RH{25.47} & Score example (Anubhav, CampusConnect) & 82.2 worked by hand & 82.2 shown in Match insights & \Pass\\ \rowrl{2-5}
+  \RH{25.47} & Qt Test / ctest suite (7 programs) & All programs pass & Full run not yet recorded & \textcolor{GEUGrey}{\textbf{To be recorded}}\\ \rowrl{2-5}
+  \RH{25.47} & WebAssembly build (GitHub Actions) & Builds cleanly & Exit code 126 on first run; fixed, passes & \Pass\\ \rowrl{2-5}
+  \RH{25.47} & Server API (52 checks) & Accounts, roles, conflicts & All 52 pass, incl.\ re-login keeps data & \Pass\\ \rowrl{2-5}
+  \RH{25.47} & Page sync logic (11 checks) & Skip unchanged, flag conflicts & All 11 pass; changes saved & \Pass\\ \rowrl{2-5}
+  \RH{25.47} & Live site (10 Oct 2026) & Healthy, sign-in, app opens & Health OK, sign-in, admin created & \Pass\\ \rowrl{2-5}
+  \RH{25.00} & End-to-end use on live site & Testing checklist passes & Edit, reload, re-login being checked & \textcolor{TFOrange}{\textbf{In progress}}\\
+  \botrl
+  \end{tabular}};
+
+  \panel{43.2}{360.0}{873.4}{133.2}
+  \node[L,text=GEUBlue,font=\fs{13}{16}\bfseries] at (57.6,381.3) {Worked example: score breakdown (82.2 / 100)};
+  % horizontal bar chart -- bar length = value x 8.528 bp
+  \foreach \lab/\val/\col [count=\i from 0] in {
+      {Coverage (max 40)}/26.7/BarCoverage,
+      {Complementarity (25)}/25.0/BarComplement,
+      {Experience (15)}/10.5/BarExperience,
+      {Engagement (10)}/10.0/BarEngagement,
+      {Diversity (10)}/10.0/BarDiversity} {
+    \fill[\col] (160.6,391.9+19.62*\i) rectangle ++(\val*8.528,14.5);
+    \node[R,font=\fs{10}{12}] at (154.6,402.9+19.62*\i) {\lab};
+    \node[L,font=\fs{10}{12}] at (164.2+\val*8.528,402.9+19.62*\i) {\val};
+  }
+  \node[L,text=GEUBlue,font=\fs{13}{16}\bfseries] at (590.4,400.3) {Other observations};
+  \node[L,align=flush left,text width=300bp,font=\fs{13}{15.67}] at (590.4,420.3)
+    {Ranking: O(n log k) over 560 profiles\\
+     App download: about 10 MB (gzip)\\
+     CI build 3--6 min \textperiodcentered{} deploy about 35 s\\
+     Free-plan cold start: about 1 min};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 12 -- GITHUB REPOSITORY & DEVELOPMENT ACTIVITY
+% ====================================================================
+\begin{frame}{GitHub Repository \& Development Activity}
+\begin{tikzpicture}[slide]
+  \panel{43.2}{111.6}{284.4}{298.8}
+  \panel{342.0}{111.6}{277.2}{298.8}
+  \panel{633.6}{111.6}{283.0}{298.8}
+
+  % --- repository information
+  \node[L,text=GEUBlue,font=\fs{16}{19}\bfseries] at (57.6,139.6) {Repository Information};
+  \node[L,font=\fs{12}{14}\ttfamily\bfseries] at (57.6,164.5)
+    {\href{https://github.com/anubhav8it/TeamForge}{\uline{github.com/anubhav8it/TeamForge}}};
+  \node[L,align=flush left,text width=262bp,font=\fs{13}{18}] at (57.6,186.3)
+    {Public; branch \texttt{main}\\45 commits (as of 10 Oct 2026)};
+  \node[L,align=flush left,text width=262bp,font=\fs{13}{15.3}] at (57.6,228.3)
+    {\textbf{Contributors:} {\fs{12}{15.3}\ttfamily anubhav8it, mukulfartiyal8it, siddhantsingh013}};
+  \node[L,align=flush left,text width=262bp,font=\fs{13}{15}] at (57.6,260.3)
+    {\textbf{README.md:} \textcolor{TFOrange}{Phase-II section still says ``Upcoming'' (update pending)}};
+
+  % --- Phase-2/ folder
+  \node[L,text=GEUBlue,font=\fs{16}{19}\bfseries] at (356.4,139.6) {Phase-2/ folder};
+  \node[txt,anchor=north west,font=\fs{12}{25.1}] at (356.4,168.5-0.7*25.1) {%
+    \begin{tabular}{@{}>{\leavevmode\ttfamily\bfseries\color{GEUBlue}}p{129.6bp}@{}>{\color{GEUGrey}}l@{}}
+      src/core       & C++ core\\
+      src/app        & app + bridge\\
+      src/web        & web bridge\\
+      ui/            & QML screens\\
+      tests/         & Qt Test\\
+      data/          & sample data\\
+      assets/        & images\\
+      web/           & server, sign-in\\
+      CMakeLists.txt & build\\
+      Dockerfile     & Render
+    \end{tabular}};
+
+  % --- development activity (important commits)
+  \node[L,text=GEUBlue,font=\fs{16}{19}\bfseries] at (648.0,139.6) {Development Activity};
+  \foreach \cm/\nt [count=\i from 0] in {
+      {Phase-I report and slides}/{Sep 2026},
+      {``Add files via upload''}/{Phase-II source},
+      {``Create / Update build-web.yml''}/{automatic WebAssembly build},
+      {``Create Dockerfile''}/{Render deployment},
+      {``Update CMakeLists.txt''}/{exception fix for browser build},
+      {``Build TeamForge for WebAssembly''}/{built files, by GitHub Actions}} {
+    \node[L,font=\fs{12}{14}\bfseries] at (648.0,163.5+32.6*\i) {\cm};
+    \node[L,text=GEUGrey,font=\fs{11}{13}] at (648.0,176.7+32.6*\i) {\nt};
+  }
+
+  \panel{129.6}{428.4}{700.6}{61.2}
+  \node[C,text width=680bp,align=flush center,font=\fs{15}{18}] at (479.9,455.8)
+    {\textbf{Requirement:} All team members must be contributors and must
+     \textbf{commit individually using their own GitHub accounts.}};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 13 -- INDIVIDUAL CONTRIBUTION
+% ====================================================================
+\begin{frame}{Individual Contribution}
+\begin{tikzpicture}[slide]
+  \node[txt,anchor=north west,font=\fs{13}{14.6}] at (43.2,107.35) {%
+  \begin{tabular}{@{}c@{\hspace{\tabcolsep}}P{128.4bp}P{132bp}P{490.5bp}Q{74.5bp}}
+  \toprl
+  \RH{38.62} & \textbf{Member} & \textbf{Role} & \textbf{Technical Contribution} & \multicolumn{1}{P{74.5bp}}{\textbf{GitHub\newline Commits}}\\
+  \headrl
+  \RH{62.85} & Mukul Fartiyal & Integration Lead &
+     Controller and permission model, interest workflow, JSON storage, session and log, CMake build;
+     WebAssembly build, sign-in server, PostgreSQL, GitHub Actions, Render; sample-data generator (with Mehul) & 20\\ \rowrl{2-5}
+  \RH{62.85} & Anubhav Bisht & UI / Testing / Docs Lead &
+     Qt Quick UI, 3 workspaces, Match insights, 25 reusable components, 3D entry screen; 7 Qt Test
+     programs; Windows test build and testing checklist; documentation & 21\\ \rowrl{2-5}
+  \RH{53.55} & Siddhant Singh & C++ / OOP Lead &
+     Domain classes (\texttt{Student}, \texttt{ProjectRequirement}, \texttt{Team}, \texttt{InterestRequest});
+     \texttt{MatchingStrategy} hierarchy; \texttt{Repository<T>}; exceptions; input validation & 1\\ \rowrl{2-5}
+  \RH{53.12} & Mehul & DSA Lead &
+     \texttt{SkillIndex} hash map, AVL \texttt{SkillBST}, \texttt{SkillGraph} BFS, heap top-k ranking,
+     greedy \texttt{suggestTeam}; sample-data generator (with Mukul) & 0\\
+  \botrl
+  \end{tabular}};
+
+  \node[L,text=GEUGrey,font=\fs{12}{14}\itshape] at (43.2,407.5)
+    {Commit counts as of 10 Oct 2026: 20 + 21 + 1 + 0 = 42 member commits, plus 3 automatic GitHub Actions build commits = 45 total.};
+
+  \panel{43.2}{428.4}{873.4}{64.8}
+  \node[L,font=\fs{15}{18}] at (61.2,466.8)
+    {\textcolor{GEUBlue}{\textbf{Individual Evaluation:}} every member will explain and demonstrate their own module live, from the code and the running app.};
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 14 -- CHALLENGES, REMAINING WORK & PHASE-III ROADMAP
+% ====================================================================
+\begin{frame}{Challenges, Remaining Work \& Phase-III Roadmap}
+\begin{tikzpicture}[slide]
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,126.2) {Challenges Faced \& Solutions};
+  \node[txt,anchor=north west,font=\fs{12}{13}] at (43.2,136.15) {%
+  \begin{tabular}{@{}c@{\hspace{\tabcolsep}}P{178.8bp}P{272.4bp}Q{49.2bp}}
+  \toprl
+  \RH{43.62} & \textbf{Challenge} & \textbf{Solution / Learning} & \multicolumn{1}{P{49.2bp}}{\textbf{Status}}\\
+  \headrl
+  \RH{44.05} & Keeping index, AVL tree and graph in sync & One update path; rebuild functions and tests that compare rebuilt vs step-by-step state & \Fixed\\ \rowrl{2-4}
+  \RH{44.25} & Old sample data loaded from a build folder & SHA-256 stamp on sample data; backup before replacing files & \Fixed\\ \rowrl{2-4}
+  \RH{44.15} & First web version lost accounts on restart & Replaced with the real Qt app; data moved to PostgreSQL with versioned saves & \Fixed\\ \rowrl{2-4}
+  \RH{44.15} & CI build failed (exit code 126) & Call CMake with Qt's toolchain file directly & \Fixed\\ \rowrl{2-4}
+  \RH{44.15} & Browser app stopped on start & Qt kit disables exceptions; enabled -fexceptions for our code only & \Fixed\\ \rowrl{2-4}
+  \RH{43.73} & Free hosting limits & Site sleeps after 15 min idle; database expires\newline after 30 days & \textcolor{TFOrange}{\textbf{Open}}\\
+  \botrl
+  \end{tabular}};
+
+  \panel{597.6}{104.4}{319.0}{388.8}
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (612.0,133.2) {Phase-III Roadmap};
+  \foreach \tk/\who [count=\i from 0] in {
+      {Run full ctest suite; record results}/{Anubhav},
+      {End-to-end live-site testing; fix issues}/{All members},
+      {Compare weighted vs coverage-only}/{Mehul \textperiodcentered{} on the 560-profile dataset},
+      {Move or upgrade the free database}/{Mukul \textperiodcentered{} before $\approx$ 9 Nov 2026},
+      {Update README (Phase II: ``Upcoming'')}/{Anubhav},
+      {Final demo, viva prep, Phase-III report}/{All members}} {
+    \numc{625.7}{167.1+56.16*\i}{27.4}{\the\numexpr\i+1\relax}
+    \node[L,font=\fs{13}{16}] at (648.0,162.3+56.2*\i) {\tk};
+    \node[L,text=GEUGrey,font=\fs{11}{13}] at (648.0,176.7+56.0*\i) {\who};
+  }
+\end{tikzpicture}
+\end{frame}
+
+% ====================================================================
+% SLIDE 15 -- EXPECTED OUTCOMES & REFERENCES
+% ====================================================================
+\begin{frame}{Expected Outcomes \& References}
+\begin{tikzpicture}[slide]
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (43.2,129.2) {Expected Final Outcomes};
+  \node[L,text=GEUBlue,font=\fs{18}{22}\bfseries] at (504.0,129.2) {References};
+
+  \node[L,align=flush left,text width=420bp,font=\fs{15}{18}] at (43.2,157.8-18) {%
+    \begin{tflist}{16bp}{6bp}
+      \item Complete app on Windows and in the browser
+      \item Explainable, reproducible candidate recommendations
+      \item Team creation with validation and skill-gap checks
+      \item Shared web access with sign-in and persistent data
+      \item Measured weighted vs coverage-only comparison \textcolor{TFOrange}{\textbf{(Phase-III, pending)}}
+      \item Usable in college hackathons, PBL and course projects
+    \end{tflist}};
+
+  \foreach \ref [count=\i] in {
+      {Cormen et al., \textit{Introduction to Algorithms}, MIT Press.},
+      {R. Thareja, \textit{Data Structures Using C}, Oxford Univ.\ Press.},
+      {E. Balagurusamy, \textit{Object Oriented Programming with C++}.},
+      {Gamma et al., \textit{Design Patterns}, Addison-Wesley.},
+      {The Qt Company, \textit{Qt 6 Documentation; Qt for WebAssembly}.},
+      {cppreference.com; Emscripten and Render documentation.}} {
+    \node[L,font=\fs{13}{16}] at (504.0,155.3+22.6*\i-22.6) {\i.};
+    \node[L,font=\fs{13}{16}] at (530.8,155.3+22.6*\i-22.6) {\ref};
+  }
+
+  \fill[GEUBlue] (300.2,406.8) rectangle ++(360.0,75.6);
+  \node[C,text=white,font=\fs{22}{26}\bfseries] at (480.2,442.4) {Thank You};
+  \node[C,text=white,font=\fs{18}{22}] at (480.2,465.2) {Questions \& Suggestions};
+\end{tikzpicture}
+\end{frame}
+
+\end{document}
