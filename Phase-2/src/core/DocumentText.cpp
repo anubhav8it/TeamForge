@@ -7,6 +7,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -82,9 +83,13 @@ std::string tidy(const std::string& input)
     std::string out;
     out.reserve(raw.size());
     int newlines = 0;
-    for (char c : raw) {
-        if (c == '\r')
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        char c = raw[i];
+        if (c == '\r') {
+            if (i + 1 < raw.size() && raw[i + 1] == '\n')
+                continue; // a Windows line end is one break, not two
             c = '\n';
+        }
         if (c == '\t' || c == '\f' || c == '\v')
             c = ' ';
         if (c == '\n') {
@@ -106,14 +111,37 @@ std::string tidy(const std::string& input)
     return out;
 }
 
-void requireText(const std::string& text)
+int letterCount(const std::string& text)
 {
     int letters = 0;
     for (char c : text)
-        letters += std::isalpha(static_cast<unsigned char>(c)) != 0 ? 1 : 0;
-    if (letters < kMinLetters)
-        throw DocumentError("No text could be read from this file. If it is a scanned image, "
-                            "upload a text-based PDF or a DOCX, or add your details by hand.");
+        letters += std::isalpha(static_cast<unsigned char>(c)) != 0 || static_cast<unsigned char>(c) >= 0xC0 ? 1 : 0;
+    return letters;
+}
+
+void requireText(const std::string& text)
+{
+    if (letterCount(text) < kMinLetters)
+        throw DocumentError("No text could be read from this file. Check that it is your resume, "
+                            "or add your details by hand.");
+}
+
+// Character data from XML or HTML with its entities decoded (&amp;, &#233;, &nbsp; ...).
+void appendNamedEntity(std::string& out, std::string_view entity);
+
+void appendMarkupChars(std::string& out, std::string_view chunk)
+{
+    for (std::size_t k = 0; k < chunk.size(); ++k) {
+        if (chunk[k] == '&') {
+            const std::size_t semi = chunk.find(';', k);
+            if (semi != std::string_view::npos && semi - k <= 10) {
+                appendNamedEntity(out, chunk.substr(k + 1, semi - k - 1));
+                k = semi;
+                continue;
+            }
+        }
+        out += chunk[k];
+    }
 }
 
 // --- DOCX ---------------------------------------------------------------------------------------
@@ -246,19 +274,93 @@ std::string wordXmlText(std::string_view xml)
         }
         const std::size_t next = xml.find('<', i);
         const std::string_view chunk = xml.substr(i, next == std::string_view::npos ? std::string_view::npos : next - i);
-        if (inText && fallbackDepth == 0) {
-            for (std::size_t k = 0; k < chunk.size(); ++k) {
-                if (chunk[k] == '&') {
-                    const std::size_t semi = chunk.find(';', k);
-                    if (semi != std::string_view::npos && semi - k <= 10) {
-                        appendXmlEntity(out, chunk.substr(k + 1, semi - k - 1));
-                        k = semi;
-                        continue;
-                    }
-                }
-                out += chunk[k];
-            }
+        if (inText && fallbackDepth == 0)
+            appendMarkupChars(out, chunk);
+        if (out.size() > kMaxText)
+            break;
+        i = next == std::string_view::npos ? xml.size() : next;
+    }
+    return out;
+}
+
+// HTML's common named entities; the rest is XML's (&amp; &lt; numeric ...). An unknown name is
+// kept as written.
+void appendNamedEntity(std::string& out, std::string_view entity)
+{
+    static const std::pair<std::string_view, std::uint32_t> named[] = {
+        {"nbsp", 0x20}, {"ndash", 0x2013}, {"mdash", 0x2014}, {"bull", 0x2022}, {"middot", 0xB7},
+        {"hellip", 0x2026}, {"lsquo", 0x2018}, {"rsquo", 0x2019}, {"ldquo", 0x201C}, {"rdquo", 0x201D},
+        {"copy", 0xA9}, {"reg", 0xAE}, {"trade", 0x2122}, {"eacute", 0xE9}, {"rarr", 0x2192}};
+    for (const auto& [name, cp] : named)
+        if (entity == name) {
+            appendUtf8(out, cp);
+            return;
         }
+    const std::size_t before = out.size();
+    appendXmlEntity(out, entity);
+    if (out.size() == before && !(entity.size() > 1 && entity[0] == '#'))
+        out.append("&").append(entity).append(";");
+}
+
+// The value of attribute `name` in a tag's text, or "" (`text:c="3"` -> "3").
+std::string_view attribute(std::string_view tag, std::string_view name)
+{
+    for (std::size_t at = tag.find(name); at != std::string_view::npos; at = tag.find(name, at + 1)) {
+        const std::size_t eq = at + name.size();
+        if (at > 0 && tag[at - 1] != ' ' && tag[at - 1] != '\t' && tag[at - 1] != '\n')
+            continue;
+        if (eq + 1 < tag.size() && tag[eq] == '=' && (tag[eq + 1] == '"' || tag[eq + 1] == '\'')) {
+            const std::size_t end = tag.find(tag[eq + 1], eq + 2);
+            if (end != std::string_view::npos)
+                return tag.substr(eq + 2, end - eq - 2);
+        }
+    }
+    return {};
+}
+
+// OpenDocument XML -> text: the document body (office:text) only, a line per paragraph or
+// heading, text:s for runs of spaces. Tracked (deleted) changes and comments are skipped.
+std::string odfXmlText(std::string_view xml)
+{
+    std::string out;
+    bool inBody = false;
+    int skipDepth = 0;
+    std::size_t i = 0;
+    while (i < xml.size()) {
+        if (xml[i] == '<') {
+            const std::size_t close = xml.find('>', i);
+            if (close == std::string_view::npos)
+                break;
+            std::string_view tag = xml.substr(i + 1, close - i - 1);
+            const bool closing = !tag.empty() && tag[0] == '/';
+            const bool selfClosing = !tag.empty() && tag.back() == '/';
+            if (closing)
+                tag.remove_prefix(1);
+            const std::string_view name = tag.substr(0, tag.find_first_of(" /\t\r\n"));
+            if (name == "office:text") {
+                inBody = !closing && !selfClosing;
+            } else if (name == "text:tracked-changes" || name == "office:annotation") {
+                skipDepth += closing ? -1 : selfClosing ? 0 : 1;
+            } else if (inBody && skipDepth == 0) {
+                if ((name == "text:p" || name == "text:h") && (closing || selfClosing))
+                    out += '\n';
+                else if (name == "text:tab" && !closing)
+                    out += '\t';
+                else if (name == "text:line-break" && !closing)
+                    out += '\n';
+                else if (name == "text:s" && !closing) {
+                    const std::string count(attribute(tag, "text:c"));
+                    out.append(std::clamp(count.empty() ? 1 : std::atoi(count.c_str()), 1, 8), ' ');
+                } else if (name == "table:table-cell" && closing)
+                    out += '\t';
+            }
+            i = close + 1;
+            continue;
+        }
+        const std::size_t next = xml.find('<', i);
+        const std::string_view chunk = xml.substr(i, next == std::string_view::npos ? std::string_view::npos : next - i);
+        if (inBody && skipDepth == 0)
+            appendMarkupChars(out, chunk);
         if (out.size() > kMaxText)
             break;
         i = next == std::string_view::npos ? xml.size() : next;
@@ -1241,24 +1343,397 @@ private:
     double lastEndX_ = 0;
 };
 
+// --- RTF ----------------------------------------------------------------------------------------
+
+// Groups that hold no document text: font and colour tables, styles, metadata, pictures,
+// field instructions (the field's shown result, \fldrslt, is kept).
+bool rtfSkippedDestination(std::string_view word)
+{
+    static const std::set<std::string, std::less<>> skipped = {
+        "fonttbl", "colortbl", "stylesheet", "info", "pict", "object", "fldinst", "themedata",
+        "colorschememapping", "datastore", "latentstyles", "listtable", "listoverridetable", "rsidtbl",
+        "generator", "xmlnstbl", "pgdsctbl", "revtbl", "filetbl", "nonshppict", "bkmkstart", "bkmkend"};
+    return skipped.count(word) > 0;
+}
+
+std::string rtfBody(std::string_view rtf)
+{
+    struct Group
+    {
+        bool skip = false;
+        long unicodeFallback = 1; // \ucN: characters that follow \uN for older readers
+    };
+    std::vector<Group> groups{Group{}};
+    std::string out;
+    long fallbackLeft = 0;
+    const auto emit = [&](std::uint32_t cp) {
+        if (fallbackLeft > 0) {
+            --fallbackLeft;
+            return;
+        }
+        if (!groups.back().skip)
+            appendUtf8(out, cp);
+    };
+    const auto structural = [&](char c) {
+        fallbackLeft = 0;
+        if (!groups.back().skip)
+            out += c;
+    };
+    std::size_t i = 0;
+    while (i < rtf.size() && out.size() <= kMaxText) {
+        const char c = rtf[i];
+        if (c == '{') {
+            if (groups.size() > 512)
+                throw DocumentError("The RTF file is damaged (too deeply nested).");
+            groups.push_back(groups.back());
+            ++i;
+            if (rtf.substr(i, 2) == "\\*") // an optional destination this reader does not know
+                groups.back().skip = true;
+            fallbackLeft = 0;
+            continue;
+        }
+        if (c == '}') {
+            if (groups.size() > 1)
+                groups.pop_back();
+            fallbackLeft = 0;
+            ++i;
+            continue;
+        }
+        if (c == '\r' || c == '\n') {
+            ++i;
+            continue;
+        }
+        if (c != '\\') {
+            emit(winAnsi(static_cast<unsigned char>(c)));
+            ++i;
+            continue;
+        }
+        if (i + 1 >= rtf.size())
+            break;
+        const char next = rtf[i + 1];
+        if (next == '\\' || next == '{' || next == '}') {
+            emit(static_cast<unsigned char>(next));
+            i += 2;
+            continue;
+        }
+        if (next == '\'') {
+            const std::string hex(rtf.substr(i + 2, 2));
+            char *end = nullptr;
+            const unsigned long byte = std::strtoul(hex.c_str(), &end, 16);
+            if (hex.size() == 2 && end != nullptr && *end == '\0')
+                emit(winAnsi(static_cast<unsigned char>(byte)));
+            i += 4;
+            continue;
+        }
+        if (next == '~') {
+            emit(' ');
+            i += 2;
+            continue;
+        }
+        if (next == '_') {
+            emit('-');
+            i += 2;
+            continue;
+        }
+        if (std::isalpha(static_cast<unsigned char>(next)) == 0) { // \- \* \| and the like
+            i += 2;
+            continue;
+        }
+        // A control word: letters, an optional signed number, an optional space.
+        std::size_t j = i + 1;
+        while (j < rtf.size() && std::isalpha(static_cast<unsigned char>(rtf[j])) != 0)
+            ++j;
+        const std::string_view word = rtf.substr(i + 1, j - i - 1);
+        bool negative = false;
+        if (j < rtf.size() && rtf[j] == '-') {
+            negative = true;
+            ++j;
+        }
+        long parameter = 0;
+        bool hasParameter = false;
+        while (j < rtf.size() && std::isdigit(static_cast<unsigned char>(rtf[j])) != 0 && parameter < 10000000) {
+            parameter = parameter * 10 + (rtf[j] - '0');
+            hasParameter = true;
+            ++j;
+        }
+        if (negative)
+            parameter = -parameter;
+        if (j < rtf.size() && rtf[j] == ' ')
+            ++j;
+        i = j;
+
+        if (word == "bin" && hasParameter && parameter > 0) {
+            i += static_cast<std::size_t>(parameter); // raw binary data
+        } else if (rtfSkippedDestination(word)) {
+            groups.back().skip = true;
+        } else if (word == "uc") {
+            groups.back().unicodeFallback = std::max(0L, parameter);
+        } else if (word == "u") {
+            fallbackLeft = 0;
+            emit(static_cast<std::uint32_t>(parameter < 0 ? parameter + 65536 : parameter));
+            fallbackLeft = groups.back().unicodeFallback;
+        } else if (word == "par" || word == "line" || word == "sect" || word == "page" || word == "row") {
+            structural('\n');
+        } else if (word == "tab" || word == "cell") {
+            structural('\t');
+        } else if (word == "emdash") {
+            emit(0x2014);
+        } else if (word == "endash") {
+            emit(0x2013);
+        } else if (word == "bullet") {
+            emit(0x2022);
+        } else if (word == "lquote" || word == "rquote") {
+            emit(word == "lquote" ? 0x2018 : 0x2019);
+        } else if (word == "ldblquote" || word == "rdblquote") {
+            emit(word == "ldblquote" ? 0x201C : 0x201D);
+        } else if (word == "emspace" || word == "enspace" || word == "qmspace") {
+            emit(' ');
+        }
+    }
+    return out;
+}
+
+// --- plain text and HTML ------------------------------------------------------------------------
+
+bool validUtf8(std::string_view s)
+{
+    std::size_t i = 0;
+    while (i < s.size()) {
+        const auto c = static_cast<unsigned char>(s[i]);
+        const int extra = c < 0x80 ? 0 : (c >> 5) == 0x6 ? 1 : (c >> 4) == 0xE ? 2 : (c >> 3) == 0x1E ? 3 : -1;
+        if (extra < 0 || i + static_cast<std::size_t>(extra) >= s.size() + (extra == 0 ? 1 : 0))
+            return false;
+        for (int k = 1; k <= extra; ++k)
+            if ((static_cast<unsigned char>(s[i + static_cast<std::size_t>(k)]) >> 6) != 0x2)
+                return false;
+        i += static_cast<std::size_t>(extra) + 1;
+    }
+    return true;
+}
+
+// Bytes -> UTF-8: a UTF-8 or UTF-16 byte order mark, valid UTF-8, or else Windows-1252.
+std::string decodeText(std::string_view bytes)
+{
+    if (startsWith(bytes, "\xFE\xFF"))
+        return utf16beToUtf8(std::string(bytes.substr(2)));
+    if (startsWith(bytes, "\xFF\xFE")) {
+        std::string swapped(bytes.substr(2));
+        for (std::size_t i = 0; i + 1 < swapped.size(); i += 2)
+            std::swap(swapped[i], swapped[i + 1]);
+        return utf16beToUtf8(swapped);
+    }
+    if (startsWith(bytes, "\xEF\xBB\xBF"))
+        bytes.remove_prefix(3);
+    if (validUtf8(bytes))
+        return std::string(bytes);
+    std::string out;
+    out.reserve(bytes.size());
+    for (char c : bytes)
+        appendUtf8(out, winAnsi(static_cast<unsigned char>(c)));
+    return out;
+}
+
+// Text, not binary data: a UTF-16 byte order mark, or no NUL bytes and almost no other control
+// characters in the first 4 KB.
+bool looksLikeText(std::string_view bytes)
+{
+    if (startsWith(bytes, "\xFE\xFF") || startsWith(bytes, "\xFF\xFE"))
+        return true;
+    const std::string_view head = bytes.substr(0, 4096);
+    int controls = 0;
+    for (char c : head) {
+        const auto u = static_cast<unsigned char>(c);
+        if (u == 0)
+            return false;
+        if (u < 0x20 && c != '\n' && c != '\r' && c != '\t' && c != '\f')
+            ++controls;
+    }
+    return controls * 100 <= static_cast<int>(head.size());
+}
+
+std::string asciiLower(std::string_view text)
+{
+    std::string out(text);
+    for (char& c : out)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
+bool looksLikeHtml(std::string_view bytes)
+{
+    std::string head = asciiLower(bytes.substr(0, 1024));
+    if (startsWith(head, "\xEF\xBB\xBF"))
+        head.erase(0, 3);
+    head.erase(0, head.find_first_not_of(" \t\r\n"));
+    return startsWith(head, "<!doctype html") || startsWith(head, "<html")
+           || (startsWith(head, "<") && (head.find("<body") != std::string::npos || head.find("<div") != std::string::npos));
+}
+
+std::string markupFreeHtml(const std::string& html)
+{
+    static const std::set<std::string, std::less<>> blocks = {
+        "p", "div", "br", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "table", "section",
+        "article", "header", "footer", "main", "aside", "nav", "hr", "dt", "dd", "dl", "blockquote", "pre",
+        "address", "figcaption", "form", "fieldset", "legend", "body"};
+    static const std::set<std::string, std::less<>> hidden = {"script", "style", "head", "noscript", "template", "svg"};
+    const std::string lower = asciiLower(html);
+    std::string out;
+    std::size_t i = 0;
+    while (i < html.size() && out.size() <= kMaxText) {
+        if (html[i] != '<') {
+            const std::size_t next = html.find('<', i);
+            const std::string_view chunk = std::string_view(html).substr(i, next == std::string::npos ? std::string::npos : next - i);
+            std::string text;
+            appendMarkupChars(text, chunk);
+            for (char& c : text)
+                if (c == '\n' || c == '\r' || c == '\t')
+                    c = ' '; // HTML whitespace is not layout
+            out += text;
+            i = next == std::string::npos ? html.size() : next;
+            continue;
+        }
+        if (lower.compare(i, 4, "<!--") == 0) {
+            const std::size_t end = lower.find("-->", i + 4);
+            i = end == std::string::npos ? html.size() : end + 3;
+            continue;
+        }
+        const std::size_t close = html.find('>', i);
+        if (close == std::string::npos)
+            break;
+        std::string_view tag = std::string_view(lower).substr(i + 1, close - i - 1);
+        const bool closing = !tag.empty() && tag[0] == '/';
+        if (closing)
+            tag.remove_prefix(1);
+        const std::string name(tag.substr(0, tag.find_first_of(" /\t\r\n")));
+        i = close + 1;
+        if (!closing && hidden.count(name) > 0) {
+            const std::size_t end = lower.find("</" + name, i);
+            const std::size_t endClose = end == std::string::npos ? std::string::npos : lower.find('>', end);
+            i = endClose == std::string::npos ? html.size() : endClose + 1;
+        } else if (blocks.count(name) > 0) {
+            // One break between blocks, as in the other formats (</h1><div> is not a blank line).
+            while (!out.empty() && out.back() == ' ')
+                out.pop_back();
+            if (!out.empty() && out.back() != '\n')
+                out += '\n';
+        } else if (name == "td" || name == "th") {
+            out += '\t';
+        }
+    }
+    return out;
+}
+
+// Markdown marks that are not words: heading #s, block quotes, **bold**, __bold__, `code`.
+std::string markdownFree(const std::string& text)
+{
+    std::string out;
+    out.reserve(text.size());
+    bool lineStart = true;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (lineStart && (c == '#' || c == '>')) {
+            while (i + 1 < text.size() && (text[i + 1] == '#' || text[i + 1] == '>' || text[i + 1] == ' '))
+                ++i;
+            continue;
+        }
+        lineStart = c == '\n';
+        if (c == '`' || ((c == '*' || c == '_') && i + 1 < text.size() && text[i + 1] == c)) {
+            if (c != '`')
+                ++i;
+            continue;
+        }
+        out += c;
+    }
+    return out;
+}
+
+// --- kinds of file ------------------------------------------------------------------------------
+
+// A photo or scanned page: JPEG, PNG, GIF, BMP, TIFF, WebP, HEIC/HEIF or AVIF.
+bool looksLikeImage(std::string_view b)
+{
+    if (startsWith(b, "\xFF\xD8\xFF") || startsWith(b, "\x89PNG\r\n") || startsWith(b, "GIF8")
+        || startsWith(b, std::string_view("II*\0", 4)) || startsWith(b, std::string_view("MM\0*", 4)))
+        return true;
+    if (startsWith(b, "BM") && b.size() > 18) {
+        const std::uint32_t header = le32(b, 14); // BITMAPINFOHEADER and its later versions
+        return header == 12 || header == 40 || header == 52 || header == 56 || header == 108 || header == 124;
+    }
+    if (startsWith(b, "RIFF") && b.size() >= 12 && b.substr(8, 4) == "WEBP")
+        return true;
+    if (b.size() >= 12 && b.substr(4, 4) == "ftyp") {
+        const std::string_view brand = b.substr(8, 4);
+        for (std::string_view known : {"heic", "heix", "hevc", "heim", "heis", "mif1", "msf1", "avif"})
+            if (brand == known)
+                return true;
+    }
+    return false;
+}
+
+// What a ZIP holds: a Word or an OpenDocument text document. Office files of other kinds are
+// named, so the person knows what to do; a ZIP that cannot be listed is reported when it is read.
+DocumentType zipKind(std::string_view bytes, const std::string& ext)
+{
+    std::vector<ZipEntry> entries;
+    try {
+        entries = zipDirectory(bytes);
+    } catch (const DocumentError&) {
+        return ext == "odt" ? DocumentType::Odt : DocumentType::Docx;
+    }
+    const auto has = [&](std::string_view prefix) {
+        return std::any_of(entries.begin(), entries.end(), [&](const ZipEntry& e) { return startsWith(e.name, prefix); });
+    };
+    if (has("word/document.xml"))
+        return DocumentType::Docx;
+    if (has("content.xml")) {
+        const auto type = std::find_if(entries.begin(), entries.end(), [](const ZipEntry& e) { return e.name == "mimetype"; });
+        std::string mime;
+        try {
+            if (type != entries.end())
+                mime = zipRead(bytes, *type);
+        } catch (const DocumentError&) {
+        }
+        if (mime.find("opendocument.text") != std::string::npos || (mime.empty() && ext == "odt"))
+            return DocumentType::Odt;
+        throw DocumentError("This OpenDocument file is not a text document (it may be a spreadsheet or "
+                            "slides). Save your resume as a document, PDF or text file and upload that.");
+    }
+    if (has("ppt/") || has("xl/"))
+        throw DocumentError("This is a PowerPoint or Excel file. Save your resume as PDF, DOCX or text and upload that.");
+    throw DocumentError("This ZIP archive is not a document. Upload the resume itself, not a folder of files.");
+}
+
+constexpr const char *kSupported =
+    "TeamForge reads PDF, Word (DOCX), OpenDocument (ODT), RTF, text, Markdown and HTML files, "
+    "and photos or scans of your resume (JPEG, PNG and other common images).";
+
 } // namespace
 
 DocumentType detectDocumentType(std::string_view bytes, std::string_view fileName)
 {
     if (bytes.empty())
         throw DocumentError("The file is empty.");
+    const std::string ext = lowerExtension(fileName);
     if (bytes.substr(0, 1024).find("%PDF-") != std::string_view::npos)
         return DocumentType::Pdf;
     if (startsWith(bytes, "PK\x03\x04"))
-        return DocumentType::Docx;
+        return zipKind(bytes, ext);
     if (startsWith(bytes, "\xD0\xCF\x11\xE0"))
         throw DocumentError("This looks like an old Word .doc file, or a password-protected document. "
                             "Save it as a DOCX or PDF and upload it again.");
-    const std::string ext = lowerExtension(fileName);
-    if (ext == "pdf" || ext == "docx")
-        throw DocumentError("This file is named ." + ext + ", but its content is not a "
-                            + std::string(ext == "pdf" ? "PDF" : "Word document") + "; it may be damaged.");
-    throw DocumentError("Only PDF and DOCX resumes are supported.");
+    if (startsWith(bytes, "{\\rtf"))
+        return DocumentType::Rtf;
+    if (looksLikeImage(bytes))
+        return DocumentType::Image;
+    static const std::map<std::string, std::string, std::less<>> binaryKinds = {
+        {"pdf", "a PDF"}, {"docx", "a Word document"}, {"odt", "an OpenDocument text"}, {"rtf", "an RTF document"},
+        {"jpg", "an image"}, {"jpeg", "an image"}, {"png", "an image"}, {"heic", "an image"}, {"webp", "an image"}};
+    if (const auto kind = binaryKinds.find(ext); kind != binaryKinds.end())
+        throw DocumentError("This file is named ." + ext + ", but its content is not " + kind->second
+                            + "; it may be damaged.");
+    if (looksLikeText(bytes))
+        return ext == "htm" || ext == "html" || looksLikeHtml(bytes) ? DocumentType::Html : DocumentType::Text;
+    throw DocumentError(std::string("TeamForge can't read this kind of file. ") + kSupported);
 }
 
 std::string docxText(std::string_view bytes)
@@ -1278,6 +1753,39 @@ std::string docxText(std::string_view bytes)
     return text;
 }
 
+std::string odtText(std::string_view bytes)
+{
+    const std::vector<ZipEntry> entries = zipDirectory(bytes);
+    const auto body = std::find_if(entries.begin(), entries.end(), [](const ZipEntry& e) { return e.name == "content.xml"; });
+    if (body == entries.end())
+        throw DocumentError("This file is a ZIP archive but not an OpenDocument text.");
+    std::string text = tidy(odfXmlText(zipRead(bytes, *body)));
+    requireText(text);
+    return text;
+}
+
+std::string rtfText(std::string_view bytes)
+{
+    std::string text = tidy(rtfBody(bytes));
+    requireText(text);
+    return text;
+}
+
+std::string htmlText(std::string_view bytes)
+{
+    std::string text = tidy(markupFreeHtml(decodeText(bytes)));
+    requireText(text);
+    return text;
+}
+
+std::string plainText(std::string_view bytes, bool markdown)
+{
+    std::string text = decodeText(bytes.substr(0, kMaxText));
+    text = tidy(markdown ? markdownFree(text) : text);
+    requireText(text);
+    return text;
+}
+
 std::string pdfText(std::string_view bytes)
 {
     const PdfFile pdf(bytes);
@@ -1292,13 +1800,57 @@ std::string pdfText(std::string_view bytes)
             break;
     }
     std::string text = tidy(raw);
-    requireText(text);
+    if (letterCount(text) < kMinLetters)
+        throw NeedsReadingError("This PDF has no text in it: it is a scan or a picture of the pages.");
     return text;
 }
 
 std::string documentText(std::string_view bytes, std::string_view fileName)
 {
-    return detectDocumentType(bytes, fileName) == DocumentType::Pdf ? pdfText(bytes) : docxText(bytes);
+    switch (detectDocumentType(bytes, fileName)) {
+    case DocumentType::Pdf:
+        return pdfText(bytes);
+    case DocumentType::Docx:
+        return docxText(bytes);
+    case DocumentType::Odt:
+        return odtText(bytes);
+    case DocumentType::Rtf:
+        return rtfText(bytes);
+    case DocumentType::Html:
+        return htmlText(bytes);
+    case DocumentType::Text: {
+        const std::string ext = lowerExtension(fileName);
+        return plainText(bytes, ext == "md" || ext == "markdown");
+    }
+    case DocumentType::Image:
+        break;
+    }
+    throw NeedsReadingError("This is a photo or an image of your resume, so its text has to be read from the picture.");
+}
+
+std::string acceptReadText(const ReadText& read)
+{
+    std::string text = tidy(read.text.substr(0, kMaxText));
+    // Azure reports how sure it is of each word: about 0.99 for clear print, far lower for
+    // smudged or blurred words. Many uncertain words mean the rest cannot be trusted either.
+    std::size_t uncertain = 0;
+    double total = 0;
+    for (double c : read.wordConfidence) {
+        total += c;
+        uncertain += c < 0.6 ? 1 : 0;
+    }
+    const std::size_t words = read.wordConfidence.size();
+    const double mean = words > 0 ? total / static_cast<double>(words) : 1.0;
+    if (words > 0 && (mean < 0.75 || uncertain * 4 > words)) {
+        const int share = static_cast<int>(std::lround(100.0 * static_cast<double>(uncertain) / static_cast<double>(words)));
+        throw DocumentError("The text in this picture is too blurry or unclear to read reliably (" + std::to_string(share)
+                            + "% of the words were uncertain). Take a sharper photo in good light, with the page "
+                              "flat and filling the frame, or upload the original file.");
+    }
+    if (letterCount(text) < kMinLetters)
+        throw DocumentError("Almost no text could be read from this picture. Check that it shows your resume, "
+                            "sharp and the right way up, or upload the original file.");
+    return text;
 }
 
 } // namespace teamforge

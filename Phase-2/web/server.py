@@ -15,6 +15,10 @@ data shared between people.
 * Per-account session: each account keeps its own session.json (last workspace, own profile,
   recent projects).
 * Storage: PostgreSQL when DATABASE_URL is set (Render), otherwise a local SQLite file.
+* Reading photos and scans of resumes (optional): POST /api/read-document passes the picture to
+  Azure AI Document Intelligence (prebuilt-read) and returns the text it read, with its
+  confidence in each word. Set AZURE_DOCINTEL_ENDPOINT and AZURE_DOCINTEL_KEY to turn it on.
+  The picture and the text are not stored or logged; the result is deleted from Azure at once.
 
 Standard library only, except the PostgreSQL driver (psycopg), which is needed only with
 DATABASE_URL. Run locally:  python web/server.py   then open http://localhost:8000
@@ -35,6 +39,9 @@ import secrets
 import sqlite3
 import threading
 import time
+import urllib.error
+import urllib.request
+from collections import deque
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -80,6 +87,16 @@ PBKDF2_ITERATIONS = 200_000
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_BODY_BYTES = MAX_FILE_BYTES + 64 * 1024
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
+
+# Reading photos and scans (DocumentReader). The key is a secret: set it in the host's
+# environment (Render: Environment), never in the repository.
+AZURE_DOCINTEL_ENDPOINT = os.environ.get("AZURE_DOCINTEL_ENDPOINT", "").strip().rstrip("/")
+AZURE_DOCINTEL_KEY = os.environ.get("AZURE_DOCINTEL_KEY", "").strip()
+# Azure's free tier (F0) takes files up to 4 MB and 20 requests a minute, and reads only the
+# first two pages of a PDF.
+READ_MAX_BYTES = int(float(os.environ.get("TEAMFORGE_READ_MAX_MB", "4")) * 1024 * 1024)
+READS_PER_HOUR = int(os.environ.get("TEAMFORGE_READS_PER_HOUR", "10"))   # per account
+READS_PER_MINUTE = int(os.environ.get("TEAMFORGE_READS_PER_MINUTE", "15"))  # whole server
 
 log = logging.getLogger("teamforge")
 
@@ -407,6 +424,160 @@ class Throttle:
             self.failures.pop(key, None)
 
 
+class RateLimit:
+    """At most LIMIT events per key in WINDOW seconds."""
+
+    def __init__(self, limit: int, window: float):
+        self.limit, self.window = limit, window
+        self.lock = threading.Lock()
+        self.events: dict[object, deque] = {}
+
+    def take(self, key) -> bool:
+        with self.lock:
+            events = self.events.setdefault(key, deque())
+            while events and events[0] <= now() - self.window:
+                events.popleft()
+            if len(events) >= self.limit:
+                return False
+            events.append(now())
+            return True
+
+
+# --------------------------------------------------------------------------- reading photos and scans
+
+# The picture types Azure's Read model accepts, by their first bytes. Text documents (DOCX,
+# HTML ...) are read in the app itself and never sent.
+def sniff_picture(data: bytes) -> str | None:
+    if data[:1024].find(b"%PDF-") >= 0:
+        return "application/pdf"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n"):
+        return "image/png"
+    if data.startswith(b"BM"):
+        return "image/bmp"
+    if data.startswith(b"II*\x00") or data.startswith(b"MM\x00*"):
+        return "image/tiff"
+    if data[4:8] == b"ftyp" and data[8:12] in (b"heic", b"heix", b"mif1", b"msf1"):
+        return "image/heif"
+    return None
+
+
+class ReadError(Exception):
+    """A reading failed; `status` and `message` are what the app is told."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status, self.message = status, message
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Azure calls never follow redirects: a redirect would carry the key to another address."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+class DocumentReader:
+    """Azure AI Document Intelligence, prebuilt-read model, REST API v4.0 (2024-11-30).
+
+    analyze: POST the bytes -> 202 + Operation-Location; poll that URL until "succeeded"; then
+    DELETE it so Azure does not keep the result (it would otherwise for 24 hours)."""
+    API_VERSION = "2024-11-30"
+    TIMEOUT = 60
+
+    def __init__(self, endpoint: str, key: str):
+        self.endpoint, self.key = endpoint, key
+        self.opener = urllib.request.build_opener(_NoRedirect)
+
+    @property
+    def available(self) -> bool:
+        return bool(self.endpoint and self.key)
+
+    def _call(self, method, url, data=None, content_type=None):
+        headers = {"Ocp-Apim-Subscription-Key": self.key}
+        if content_type:
+            headers["Content-Type"] = content_type
+        request = urllib.request.Request(url, data=data, method=method, headers=headers)
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                return response.status, response.headers, response.read()
+        except urllib.error.HTTPError as error:
+            return error.code, error.headers, error.read()
+
+    def _same_service(self, url: str) -> bool:
+        a, b = urlsplit(url), urlsplit(self.endpoint)
+        return (a.scheme, a.netloc.lower()) == (b.scheme, b.netloc.lower())
+
+    def read(self, data: bytes, content_type: str) -> dict:
+        url = (f"{self.endpoint}/documentintelligence/documentModels/prebuilt-read:analyze"
+               f"?api-version={self.API_VERSION}")
+        try:
+            status, headers, body = self._call("POST", url, data, content_type)
+        except OSError:
+            raise ReadError(502, "The text reader (Azure) could not be reached. Try again in a minute.")
+        if status != 202:
+            raise self._refused(status, body)
+        operation = headers.get("Operation-Location", "")
+        # The key goes only to the configured service, whatever a response says.
+        if not self._same_service(operation):
+            log.warning("document reader: unexpected Operation-Location host; result not fetched")
+            raise ReadError(502, "The text reader (Azure) gave an unexpected answer.")
+        try:
+            deadline = now() + self.TIMEOUT
+            while True:
+                try:
+                    wait = float(headers.get("Retry-After") or 1)
+                except ValueError:
+                    wait = 1
+                time.sleep(min(max(wait, 0.2), 2))
+                status, headers, body = self._call("GET", operation)
+                if status != 200:
+                    raise self._refused(status, body)
+                result = json.loads(body or b"{}")
+                state = result.get("status")
+                if state == "succeeded":
+                    return self._text(result.get("analyzeResult") or {})
+                if state == "failed":
+                    raise self._refused(422, json.dumps({"error": result.get("error") or {}}).encode())
+                if now() > deadline:
+                    raise ReadError(504, "Reading the text took too long. Try again, or with a smaller picture.")
+        except OSError:
+            raise ReadError(502, "The text reader (Azure) could not be reached. Try again in a minute.")
+        finally:
+            try:
+                self._call("DELETE", operation)
+            except OSError:
+                pass
+
+    @staticmethod
+    def _text(result: dict) -> dict:
+        pages = result.get("pages") or []
+        confidences = [round(float(word.get("confidence", 0)), 3)
+                       for page in pages for word in (page.get("words") or [])]
+        return {"text": str(result.get("content") or ""), "confidences": confidences, "pages": len(pages)}
+
+    @staticmethod
+    def _refused(status: int, body: bytes) -> ReadError:
+        try:
+            error = json.loads(body or b"{}").get("error") or {}
+        except ValueError:
+            error = {}
+        code = str(error.get("code", ""))
+        inner = str((error.get("innererror") or {}).get("code", ""))
+        log.warning("document reader: Azure answered %s %s %s", status, code, inner)
+        if status in (401, 403):
+            return ReadError(502, "Reading photos and scans is not set up correctly on this server.")
+        if status == 429:
+            return ReadError(429, "The text reader is busy. Wait a minute and try again.")
+        if status in (400, 415, 422):
+            if "TooLarge" in inner or "TooLarge" in code:
+                return ReadError(413, "This picture is too large to read. Use a smaller photo or fewer pages.")
+            return ReadError(422, "The text reader could not read this file. Check that it is a clear photo "
+                                  "or scan of your resume, or upload the original document.")
+        return ReadError(502, "The text reader (Azure) had a problem. Try again in a minute.")
+
+
 # --------------------------------------------------------------------------- static files
 
 COMPRESSIBLE = {".wasm", ".js", ".mjs", ".css", ".html", ".json", ".svg", ".txt"}
@@ -480,6 +651,9 @@ class Handler(BaseHTTPRequestHandler):
     store: TeamForgeStore = None  # set in main()
     throttle = Throttle()
     gz = GzipCache()
+    reader = DocumentReader(AZURE_DOCINTEL_ENDPOINT, AZURE_DOCINTEL_KEY)
+    reads_per_account = RateLimit(READS_PER_HOUR, 3600)
+    reads_on_server = RateLimit(READS_PER_MINUTE, 60)
 
     # ---- plumbing
     def log_message(self, fmt, *args):
@@ -579,6 +753,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404, {"error": "Not found"})
         if not self.same_origin_write():
             return self.send_json(403, {"error": "Request refused"})
+        if path == "/api/read-document" and self.command == "POST":
+            try:
+                return self.read_document()
+            except Exception:
+                log.exception("reading a document failed")
+                return self.send_json(500, {"error": "Server error"})
         try:
             body = self.read_json()
         except ValueError as error:
@@ -649,6 +829,8 @@ class Handler(BaseHTTPRequestHandler):
                 "allowedWorkspaces": WORKSPACES[user["role"]],
                 "files": files,
                 "versions": versions,
+                "readsPictures": self.reader.available,
+                "readMaxBytes": READ_MAX_BYTES,
             })
         if path == "/api/versions":
             return self.send_json(200, {"versions": self.store.versions()})
@@ -764,6 +946,44 @@ class Handler(BaseHTTPRequestHandler):
             log.info("%s saved %s (v%d)", user["email"], name, version)
         return self.send_json(200, {"status": status, "version": version})
 
+    # ---- reading photos and scans
+    def read_document(self):
+        """The raw bytes of a photo or scanned PDF in, the text Azure read out. Nothing is kept."""
+        user = self.current_user()
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if not user or length < 0 or length > READ_MAX_BYTES:
+            # Read (and drop) a body of a sensible size, so the browser gets the answer rather
+            # than a broken connection; anything larger is cut off.
+            if 0 < length <= 4 * READ_MAX_BYTES:
+                while length > 0:
+                    length -= len(self.rfile.read(min(length, 65536)) or b"x" * length)
+            else:
+                self.close_connection = True
+            if not user:
+                return self.send_json(401, {"error": "Please sign in again."})
+            return self.send_json(413, {"error": f"Pictures and scans can be up to {READ_MAX_BYTES // (1024 * 1024)} MB."})
+        data = self.rfile.read(length) if length else b""
+        if not self.reader.available:
+            return self.send_json(503, {"error": "Reading photos and scans is not set up on this server."})
+        content_type = sniff_picture(data)
+        if not content_type:
+            return self.send_json(415, {"error": "Only photos (JPEG, PNG, BMP, TIFF, HEIF) and PDF scans can be read."})
+        if not self.reads_per_account.take(user["id"]):
+            return self.send_json(429, {"error": f"You can read up to {READS_PER_HOUR} pictures an hour. Try again later."})
+        if not self.reads_on_server.take("all"):
+            return self.send_json(429, {"error": "The text reader is busy. Wait a minute and try again."})
+        started = now()
+        try:
+            result = self.reader.read(data, content_type)
+        except ReadError as error:
+            return self.send_json(error.status, {"error": error.message})
+        log.info("read a %s for account %s: %d KB, %d page(s), %d words in %.1fs", content_type, user["id"],
+                 len(data) // 1024, result["pages"], len(result["confidences"]), now() - started)
+        return self.send_json(200, result)
+
     # ---- static files
     def serve_static(self, base: Path, rel: str):
         if not rel or rel.endswith("/"):
@@ -827,6 +1047,9 @@ def main():
     Handler.store = store
     if not ADMIN_EMAILS:
         log.warning("ADMIN_EMAILS is not set: nobody can become admin (Developer workspace, user roles).")
+    if not Handler.reader.available:
+        log.info("AZURE_DOCINTEL_ENDPOINT / AZURE_DOCINTEL_KEY are not set: photos and scans of resumes "
+                 "cannot be read (text documents still can).")
     if not (STATIC_DIR / "app" / "TeamForge.wasm").is_file():
         log.warning("static/app/TeamForge.wasm is missing: build the app for WebAssembly and copy it "
                     "into web/static/app (see web/README-WEB.md).")

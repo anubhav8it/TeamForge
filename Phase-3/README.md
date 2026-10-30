@@ -133,6 +133,63 @@ and `tst_ui` cases for the whole import → review → save flow.
 Not verified: the WebAssembly build (browser file picker via `EM_JS`/embind, and the static
 `QtQuick.Dialogs` import). Run the GitHub web workflow and test on the live site before relying on it.
 
+## Feature 4: any kind of resume, including photos and scans
+
+The resume import now takes almost any file a student has, not only PDF and DOCX:
+
+| File | Read by |
+|---|---|
+| PDF with text, DOCX | the app (as before) |
+| ODT (LibreOffice / Google Docs export), RTF, TXT, Markdown, HTML | the app: new readers in `core/DocumentText.*` |
+| Photo of a printed resume (JPEG, PNG, BMP, GIF; in the browser also HEIC, WebP, AVIF) | Azure AI Document Intelligence, through the server, after the person agrees |
+| PDF of scanned pages (no text inside) | the same, sent as it is |
+| Old `.doc`, PowerPoint, Excel, ZIP folders, programs | refused with what to do instead |
+
+**Blurry or unreadable pictures are refused**, in two steps:
+
+1. *Before anything is sent* (`core/ScanQuality.*`, standard C++): the app decodes the photo,
+   turns it upright, makes it grey and scales it to 1600 px. It then refuses it if it is too small
+   (under 500 × 700 px), too dark, blank, too blurry or too faint, each with its own message. Blur
+   is measured per 24 px tile that has detail. The score is the RMS Laplacian divided by the
+   tile's standard deviation, which ignores contrast; the median over those tiles is used. The
+   limit (0.35) was calibrated on rendered resume pages blurred by known amounts. Sharp print
+   scores 1.5–2.5, and letters start to merge (blur sigma 1.6 px) at about 0.28. It is a
+   heuristic and errs on letting a picture through, because of step 2.
+2. *After reading* (`acceptReadText`): Azure reports how sure it is of each word. If the average
+   is under 0.75, or more than a quarter of the words are under 0.6, the text is not trusted and
+   the person is asked for a sharper photo. Too little text is refused too.
+
+**Consent and privacy.** A photo or scan is never sent without asking. The card says "Read the text
+from this photo?" and names Microsoft Azure; nothing leaves until **Read the text** is clicked.
+Photos are re-encoded as JPEG (at most 3000 px, at most 4 MB), which also drops the camera's
+metadata. The server checks sign-in, the TeamForge header and same origin, the size, the file
+type and per-account and per-server rate limits. It deletes Azure's copy of the result at once
+and stores and logs neither the picture nor the text. The rest is as in Feature 2: only reviewed
+details are saved.
+
+**Without Azure** (the desktop app, or a server without `AZURE_DOCINTEL_*` set) photos are still
+checked for blur, then the person is told where pictures can be read and what to upload instead.
+Setup: `Phase-2/web/README-WEB.md`, "Optional: read photos and scans". It needs a free (F0)
+Document Intelligence resource that you create yourself; this repository creates nothing in Azure.
+
+Tests:
+- `tst_resume`: ODT, RTF, HTML, Markdown and UTF-16 text; types and refusals; blur, darkness,
+  faintness, blank and size checks; OCR confidence.
+- `tst_controller`: the whole flow with a stand-in reader. It covers the consent step, a blurry
+  photo never being sent, the server's errors, a late answer after Cancel, the scanned-PDF size
+  limit and a log free of names.
+- `tst_ui`: the card asks, sends, and the review opens.
+- `web/tests/test_server.py`: a fake Azure service. It checks sign-in and same-origin rules,
+  that the request goes to prebuilt-read v4.0, that the result is deleted after reading, that a
+  result URL on another host is not followed, the rate limit, the 4 MB limit, the 503 without
+  settings, and a log free of key, picture and text.
+
+The test harness now reads the server's log as it is written. A full pipe used to stall the
+server, which was the "reset restores seed" timeout on slower machines.
+
+Not verified here: the WebAssembly build (`EM_JS`/embind glue and the browser's image conversion)
+and a real Azure call. Check both on the live site after setting the Azure variables.
+
 ## Feature 3: a note with your interest
 
 When a participant expresses interest (in the opportunity drawer), they can add a short note for

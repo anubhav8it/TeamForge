@@ -97,6 +97,13 @@ QString prepareDataDirectory()
     const val allowed = boot["allowedWorkspaces"];
     if (allowed.isString())
         qputenv("TEAMFORGE_ALLOWED_WORKSPACES", QByteArray::fromStdString(allowed.as<std::string>()));
+    // Photos and scans of resumes are read by the server (Azure) when it is set up for that.
+    if (boot["readsPictures"].isTrue()) {
+        qputenv("TEAMFORGE_READS_PICTURES", "1");
+        const val limit = boot["readMaxBytes"];
+        if (limit.isNumber())
+            qputenv("TEAMFORGE_READ_MAX_BYTES", QByteArray::number(limit.as<double>(), 'f', 0));
+    }
 
     const val files = boot["files"];
     if (files.isUndefined() || files.isNull())

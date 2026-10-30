@@ -54,4 +54,12 @@ public:
     using TeamForgeError::TeamForgeError;
 };
 
+// The document is a picture of text (a photo, or a PDF of scanned pages): its words can only be
+// read with OCR. The message describes the file; the app adds what the person can do.
+class NeedsReadingError : public DocumentError
+{
+public:
+    using DocumentError::DocumentError;
+};
+
 } // namespace teamforge

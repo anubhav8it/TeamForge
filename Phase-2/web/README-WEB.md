@@ -141,6 +141,32 @@ be far smaller. If it is not, build with `-DCMAKE_BUILD_TYPE=MinSizeRel`.)
 again with the same email and password; a change you make in TeamForge is still there after
 reloading and after signing in from another browser.
 
+### Optional: read photos and scans of resumes (Azure AI Document Intelligence)
+
+Text documents (PDF, DOCX, ODT, RTF, text, HTML) are read in the app itself and need nothing
+here. To also read **photos and scanned PDFs**, the server passes them to Azure's *Read* model
+(`prebuilt-read`, REST API 2024-11-30). Without these settings the app explains that pictures
+can't be read on this site, and everything else works as before.
+
+1. Azure portal → **Create a resource** → search **Document Intelligence** → **Create**.
+   Pick your subscription (Azure for Students works), a resource group, a region near you, a
+   name, and pricing tier **Free F0**. **Review + create.** (F0 costs nothing; a subscription
+   can have one F0 resource of this kind. Check the current free page allowance on Azure's
+   pricing page.)
+2. Open the resource → **Keys and Endpoint**. Copy the **Endpoint** and **KEY 1**.
+3. Render → the TeamForge service → **Environment** → add
+   `AZURE_DOCINTEL_ENDPOINT` = the endpoint, and `AZURE_DOCINTEL_KEY` = the key.
+   The key is a secret: keep it in Render's environment only, never in the repository, a chat or
+   a screenshot. If it leaks, use **Regenerate Key 1** in Azure and update Render.
+4. **Manual Deploy**. The log no longer says `AZURE_DOCINTEL_ENDPOINT / AZURE_DOCINTEL_KEY are not set`.
+5. Check: in onboarding step 01, choose a photo of a printed resume. The card asks before
+   sending it; after **Read the text** the usual review opens. A blurred photo is refused on the
+   card without being sent.
+
+Limits, all optional environment variables: `TEAMFORGE_READ_MAX_MB` (default 4, F0's limit),
+`TEAMFORGE_READS_PER_HOUR` per account (default 10), `TEAMFORGE_READS_PER_MINUTE` for the whole
+server (default 15; F0 allows 20). On F0, Azure reads only the first two pages of a PDF.
+
 ### Render free plan: what to expect
 
 * The free web service **sleeps after 15 minutes without visitors**; the next visit waits about a
@@ -163,6 +189,11 @@ reloading and after signing in from another browser.
   production system would move those checks to the server.
 * Admin → **Reset shared data** reloads the sample data from `data/` (for example after running
   `tools/generate_sample_data.py`). Accounts are kept.
+* Photos and scans of resumes (`POST /api/read-document`, signed-in accounts only, same-origin
+  writes only): the picture is passed to Azure and the text returned to the app; neither is
+  stored or logged (the log has the file type, size, page and word counts). The server deletes
+  Azure's copy of the result right after reading it (Azure would otherwise keep it 24 hours).
+  The Azure key is sent only to the configured endpoint, never to an address in a response.
 
 ## Files
 
