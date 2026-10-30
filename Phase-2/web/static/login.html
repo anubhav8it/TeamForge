@@ -4,16 +4,55 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamForge – Sign in</title>
+<meta name="description" content="TeamForge matches students into project and hackathon teams by complementary skills.">
+<meta name="theme-color" content="#1B1F26">
 <link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="preload" href="/static/fonts/Manrope-ExtraBold.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="/static/css/teamforge.css">
 </head>
-<body>
+<body class="has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
 <main class="auth-page">
-  <div class="auth-card">
-    <img class="auth-logo" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
-    <p class="auth-tagline">Build the right team.</p>
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="hero-logo" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Skill-based team matching</p>
+    <h1 class="hero-title" id="hero-title" data-reveal>Build the right team.</h1>
+    <p class="hero-sub">TeamForge matches students into project and hackathon teams by
+      <strong>complementary</strong> skills, so every team covers what its project needs.</p>
 
-    <section class="panel">
+    <ul class="features">
+      <li class="feature" data-tilt>
+        <span class="feature-icon red" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3.2"/><circle cx="16" cy="9" r="3.2"/><path d="M2.5 19c.8-3 3-4.6 5.5-4.6s4.7 1.6 5.5 4.6M10.5 19c.8-3 3-4.6 5.5-4.6s4.7 1.6 5.5 4.6"/></svg>
+        </span>
+        <span><strong>Complementary matching</strong>
+          <small>Ranks who fills a team's gaps, with the reason for every match.</small></span>
+      </li>
+      <li class="feature" data-tilt>
+        <span class="feature-icon blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+        </span>
+        <span><strong>Profile from your resume</strong>
+          <small>Upload a PDF or DOCX and review every detail before it is saved.</small></span>
+      </li>
+      <li class="feature" data-tilt>
+        <span class="feature-icon violet" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>
+        </span>
+        <span><strong>People decide</strong>
+          <small>Hosts review interest and build the team; scores only support the choice.</small></span>
+      </li>
+    </ul>
+
+    <p class="quote" id="quote" aria-live="polite"></p>
+  </section>
+
+  <div class="auth-card">
+    <img class="auth-logo" src="/static/img/teamforge_logo_dark.png" alt="">
+    <section class="panel glass" data-spotlight>
+      <h2 class="panel-title">Welcome</h2>
+      <p class="panel-sub">Sign in, or create an account to start.</p>
       <div class="tabs" role="tablist">
         <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
         <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
@@ -45,6 +84,8 @@
       Graphic Era (Deemed to be University) · Team DSCPP-III-2026-T238</p>
   </div>
 </main>
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
 <script src="/static/js/login.js"></script>
 </body>
 </html>

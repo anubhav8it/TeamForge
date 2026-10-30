@@ -43,6 +43,17 @@ try:
     check("root redirects to /login when signed out", s == 303 and h["Location"] == "/login", (s, h.get("Location")))
     s, h, b = anon.req("GET", "/login", raw=True)
     check("login page served with CSP", s == 200 and b"Sign in" in b and "Content-Security-Policy" in h, s)
+    # The pages must keep working under that CSP (script-src/style-src 'self'): no inline scripts,
+    # no inline style attributes, nothing from other origins.
+    import re as _re
+    for page in ("login.html", "app/index.html", "admin.html"):
+        html = Path(WEB, "static", page).read_text(encoding="utf-8")
+        inline = _re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", html) + _re.findall(r"\sstyle=\"", html)
+        remote = _re.findall(r"(?:src|href)=\"(?:https?:)?//", html)
+        check(f"{page} has no inline scripts or styles and no remote assets", not inline and not remote, inline + remote)
+    for asset in ("/static/js/backdrop.js", "/static/js/ambience.js"):
+        s, h, b = anon.req("GET", asset, raw=True)
+        check(f"{asset} served as JavaScript", s == 200 and "javascript" in h.get("Content-Type", ""), (s, h.get("Content-Type")))
     s, h, _ = anon.req("GET", "/app/")
     check("app page needs sign-in", s == 303 and h["Location"] == "/login", s)
     s, _, b = anon.req("GET", "/api/bootstrap")
