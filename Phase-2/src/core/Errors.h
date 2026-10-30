@@ -46,4 +46,12 @@ public:
     using TeamForgeError::TeamForgeError;
 };
 
+// An uploaded document (a resume) could not be read: unsupported type, damaged, encrypted, or
+// with no text in it. The message is written for the person who uploaded it.
+class DocumentError : public TeamForgeError
+{
+public:
+    using TeamForgeError::TeamForgeError;
+};
+
 } // namespace teamforge

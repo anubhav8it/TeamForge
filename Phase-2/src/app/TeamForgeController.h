@@ -7,15 +7,19 @@
 #include "core/JsonStorage.h"
 #include "core/MatchResult.h"
 #include "core/MatchingEngine.h"
+#include "core/Motivation.h"
 #include "core/ProjectRequirement.h"
 #include "core/Repository.h"
 #include "core/Team.h"
 #include "core/WeightedMatchingStrategy.h"
 
+#include <QByteArray>
 #include <QDateTime>
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QThreadPool>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -106,6 +110,21 @@ class TeamForgeController : public QObject
     Q_PROPERTY(QVariantList logEntries READ logEntries NOTIFY logChanged)
     Q_PROPERTY(QVariantMap systemStatus READ systemStatus NOTIFY statusChanged)
 
+    // Motion: the system asks for less animation (Windows "Animation effects" off, or the
+    // browser's prefers-reduced-motion); lightVisuals: a touch device in the browser build.
+    // TEAMFORGE_REDUCE_MOTION=1 / TEAMFORGE_LIGHT_VISUALS=1 force either one.
+    Q_PROPERTY(bool reduceMotion READ reduceMotion CONSTANT)
+    Q_PROPERTY(bool lightVisuals READ lightVisuals CONSTANT)
+
+    // Resume import (TeamForgeResume.cpp): {state: "idle" | "working" | "ready" | "error",
+    // progress 0..1, stage (what is happening, in words), fileName, sizeBytes, error, result,
+    // canKeepCopy, hasCopy}. `result` is the analysis for review: name, age, totalYears, skills
+    // [{skill, category, evidence, years, yearsEvidence, suggestedLevel}], unmatchedSkills,
+    // projects, education, certifications, achievements, each with its evidence line.
+    Q_PROPERTY(QVariantMap resume READ resume NOTIFY resumeChanged)
+    // Upload limit: TEAMFORGE_RESUME_MAX_MB (default 20).
+    Q_PROPERTY(int resumeMaxMegabytes READ resumeMaxMegabytes CONSTANT)
+
 public:
     // Data directory: $TEAMFORGE_DATA_DIR if set, otherwise "data" next to the executable, or
     // <local app data>/TeamForge/data when that folder is not writable.
@@ -152,6 +171,10 @@ public:
     QVariantMap lastErrorDetail() const { return lastErrorDetail_; }
     QVariantList logEntries() const { return log_.entries(); }
     QVariantMap systemStatus() const;
+    QVariantMap resume() const;
+    int resumeMaxMegabytes() const;
+    bool reduceMotion() const { return reduceMotion_; }
+    bool lightVisuals() const { return lightVisuals_; }
 
     // Where reset / seeding read the samples from (tests point this at the repository's data/).
     void setSampleDirectory(const QString& directory) { sampleDirectory_ = directory; }
@@ -219,6 +242,29 @@ public:
     Q_INVOKABLE QString composeSummary(const QVariantList& skills) const;
     // {completion: 0..1, checklist: [{key, label, done}]} for a profile or an unsaved draft.
     Q_INVOKABLE QVariantMap profileCompletion(const QVariantMap& profile) const;
+
+    // --- motivational quotes (core/Motivation.h; display only, never part of matching) -------
+    // A fresh token for one showing of a form; the quote changes between showings.
+    Q_INVOKABLE int newMotivationVisit();
+    // {text, highlight, highlightIndex, category, words} for `moment` ("register", "skills", "join",
+    // "host_project"). `skills` is [{skill, level}] as entered; only counts and levels are read.
+    // Stable for the same visit while the rule's categories stay the same.
+    Q_INVOKABLE QVariantMap motivation(const QString& moment, const QVariantList& skills, int learningCount, int visit);
+    // The whole library, for the developer workspace and tests: [{text, highlight, highlightIndex, category, words}].
+    Q_INVOKABLE QVariantList motivationLibrary() const;
+
+    // --- resume import (participant: their own profile only) ----------------------------------
+    // Reads and analyses a PDF or DOCX in the background; `resume` reports progress and the
+    // result. Nothing is saved: the person reviews the result and saves through saveMyProfile.
+    Q_INVOKABLE bool analyseResumeFile(const QUrl& file);
+    bool analyseResumeData(const QString& fileName, const QByteArray& bytes);
+    // The browser build's file picker (a desktop build uses the QML file dialog instead).
+    Q_INVOKABLE void chooseResumeFile();
+    Q_INVOKABLE void clearResume();
+    // Desktop only: keep the analysed file as a private copy in the local data folder (never
+    // synced or shared), or delete it.
+    Q_INVOKABLE bool keepResumeCopy();
+    Q_INVOKABLE bool deleteResumeCopy();
 
     // --- interest workflow ---------------------------------------------------------------------
     // Participant: express interest in a project (saved immediately).
@@ -290,6 +336,7 @@ signals:
     void workspaceChanged();
     void profileChanged();
     void interestsChanged();
+    void resumeChanged();
     void logChanged();
     void statusChanged();
 
@@ -324,6 +371,9 @@ private:
     };
 
     static QString defaultDataDirectory();
+    // Read once at start-up (see the reduceMotion / lightVisuals properties).
+    static bool systemReducesMotion();
+    static bool systemPrefersLightVisuals();
 
     // Runs `action` as user operation `operation` (on `subject`, e.g. a student id). On a
     // TeamForgeError it records the details, logs them and sets the role-appropriate lastError,
@@ -418,9 +468,26 @@ private:
 
     AppLog log_;
 
+    teamforge::MotivationLibrary motivation_{static_cast<unsigned>(QDateTime::currentMSecsSinceEpoch())};
+    int motivationVisits_ = 0;
+
+    // Resume import. `resumeJob_` numbers the analyses so a stale result is ignored.
+    void setResumeState(const QString& state, double progress, const QString& stage);
+    void finishResume(int job, const QVariantMap& result, const QString& error);
+    QString resumeCopyPath() const;
+    QVariantMap resume_;
+    QByteArray resumeBytes_;     // the file under review, in memory only
+    QString resumeFileName_;
+    int resumeJob_ = 0;
+    bool reduceMotion_ = systemReducesMotion();
+    bool lightVisuals_ = systemPrefersLightVisuals();
+
     mutable std::optional<QVariantList> studentsCache_;     // sorted by name
     mutable std::vector<SearchEntry> searchCache_;          // parallel to studentsCache_
     mutable std::optional<QVariantList> requirementsCache_;
     mutable std::optional<QVariantList> opportunitiesCache_;
     mutable std::optional<std::vector<SkillRow>> skillRowsCache_;
+
+    // Last member: destroyed first, and its destructor waits for a running analysis.
+    QThreadPool resumeWorkers_;
 };

@@ -66,7 +66,12 @@ teamforge::SkillLevels skillLevelsFrom(const QVariant& value, const char *levelK
 std::vector<std::string> stringsFrom(const QVariant& value);
 
 // Core constructors validate; these only unpack the maps.
-teamforge::Student studentFrom(const QVariantMap& map);
+// A student from a QML map. Profile details ("projects", "education", "certifications",
+// "achievements", "skillYears", "totalYears") come from the map when it has any of them;
+// otherwise `previous` (the stored record, if any) keeps its details, so forms that do not edit
+// them never erase them.
+teamforge::Student studentFrom(const QVariantMap& map, const teamforge::Student *previous = nullptr);
+QVariantMap detailsToMap(const teamforge::ProfileDetails& details);
 teamforge::ProjectRequirement requirementFrom(const QVariantMap& map);
 
 } // namespace bridge

@@ -198,6 +198,65 @@ TfPage {
                 }
             }
 
+            // Details the participant added (usually from their resume).
+            Panel {
+                readonly property var details: page.me.details ?? ({})
+                readonly property bool hasCopy: Backend.myProfileId !== "" && (Backend.resume.hasCopy ?? false)
+                visible: !(details.empty ?? true) || hasCopy
+                title: qsTr("Projects, education & certifications")
+                subtitle: (details.totalYears ?? -1) >= 0 ? qsTr("%1 years of experience").arg(details.totalYears)
+                                                          : qsTr("As added to your profile")
+                Layout.fillWidth: true
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+                id: detailsPanel
+                ColumnLayout {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    spacing: 12
+                    Repeater {
+                        model: [[qsTr("Projects"), detailsPanel.details.projects ?? []],
+                                [qsTr("Education"), detailsPanel.details.education ?? []],
+                                [qsTr("Certifications"), detailsPanel.details.certifications ?? []],
+                                [qsTr("Achievements"), detailsPanel.details.achievements ?? []]]
+                        delegate: ColumnLayout {
+                            id: detailList
+                            required property var modelData
+                            visible: modelData[1].length > 0
+                            Layout.fillWidth: true
+                            spacing: 4
+                            TfText { text: detailList.modelData[0]; variant: "label" }
+                            Repeater {
+                                model: detailList.modelData[1]
+                                delegate: TfText {
+                                    required property string modelData
+                                    text: "•  " + modelData
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                    RowLayout {
+                        visible: detailsPanel.hasCopy
+                        Layout.fillWidth: true
+                        spacing: 10
+                        TfText {
+                            text: qsTr("A private copy of your resume is kept on this computer only.")
+                            variant: "muted"
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                        TfButton {
+                            text: qsTr("Delete copy")
+                            variant: "danger"
+                            compact: true
+                            onClicked: Backend.deleteResumeCopy()
+                        }
+                    }
+                }
+            }
+
             // Project fit
             Panel {
                 title: qsTr("Project fit")

@@ -56,6 +56,7 @@ qt_add_qml_module(teamforge_ui
         ui/components/LevelPips.qml
         ui/components/LogoMark3D.qml
         ui/components/MeterBar.qml
+        ui/components/MotivationQuote.qml
         ui/components/NavItem.qml
         ui/components/Panel.qml
         ui/components/Segmented.qml
@@ -64,6 +65,7 @@ qt_add_qml_module(teamforge_ui
         ui/components/SkillField.qml
         ui/components/StatTile.qml
         ui/components/TfButton.qml
+        ui/components/TfCheck.qml
         ui/components/TfComboBox.qml
         ui/components/TfPage.qml
         ui/components/TfSpinBox.qml
@@ -89,6 +91,8 @@ qt_add_qml_module(teamforge_ui
         ui/participant/OpportunityDrawer.qml
         ui/participant/ProfileEditor.qml
         ui/participant/ProfilePicker.qml
+        ui/participant/ResumeImport.qml
+        ui/participant/ResumeReviewDrawer.qml
         ui/developer/DeveloperWorkspace.qml
         ui/developer/DevOverviewPage.qml
         ui/developer/DevParticipantsPage.qml
@@ -117,6 +121,7 @@ qt_add_qml_module(teamforge_ui
     SOURCES
         src/app/TeamForgeController.cpp src/app/TeamForgeController.h
         src/app/TeamForgeParticipant.cpp src/app/TeamForgeDeveloper.cpp src/app/TeamForgeRecords.cpp src/app/TeamForgeInterest.cpp
+        src/app/TeamForgeMotivation.cpp src/app/TeamForgeResume.cpp
         src/app/BridgeSupport.cpp src/app/BridgeSupport.h
         src/app/AppLog.cpp src/app/AppLog.h
         src/app/SampleData.cpp src/app/SampleData.h

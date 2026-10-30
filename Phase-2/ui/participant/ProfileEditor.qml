@@ -16,6 +16,7 @@ Item {
     signal finished(bool created)
     signal claimed()
     signal cancelled()
+    signal message(string text)
 
     property int step: 0
     property bool showErrors: false
@@ -23,6 +24,9 @@ Item {
     property string draftProgram: ""
     property string draftSummary: ""
     property var draftInterests: []
+    // Profile details ({projects, education, certifications, achievements, skillYears,
+    // totalYears}), usually added from a resume; saved with the profile.
+    property var draftDetails: ({})
 
     readonly property var steps: [qsTr("Profile"), qsTr("Skills"), qsTr("Experience"), qsTr("Ready")]
     readonly property var stepIntros: [
@@ -44,9 +48,9 @@ Item {
     }
     function draft() {
         // Reference every input so bindings on draft() update.
-        void [draftName, draftProgram, draftSummary, draftInterests, draftSkills.count, skillsRevision]
+        void [draftName, draftProgram, draftSummary, draftInterests, draftDetails, draftSkills.count, skillsRevision]
         return { name: draftName.trim(), program: draftProgram.trim(), summary: draftSummary.trim(),
-                 skillsOffered: skillList(), skillsWanted: draftInterests }
+                 skillsOffered: skillList(), skillsWanted: draftInterests, details: draftDetails }
     }
     property int skillsRevision: 0
 
@@ -62,11 +66,13 @@ Item {
             draftInterests = me.skillsWanted.slice()
             for (const s of me.rankedSkills)
                 draftSkills.append({ skill: s.skill, level: s.level })
+            draftDetails = Object.assign({}, me.details ?? {})
         } else {
             draftName = ""
             draftProgram = ""
             draftSummary = ""
             draftInterests = []
+            draftDetails = {}
         }
         skillsRevision++
     }
@@ -86,6 +92,50 @@ Item {
         skillsRevision++
         return true
     }
+    // What the resume review applied (ResumeReviewDrawer.apply): fills the draft only; the
+    // profile is saved with the usual Save / Finish.
+    function applyResume(changes) {
+        if (changes.name !== "")
+            draftName = changes.name
+        let added = 0
+        for (const s of changes.skills) {
+            let found = -1
+            for (let i = 0; i < draftSkills.count; ++i) {
+                if (draftSkills.get(i).skill.toLowerCase().replace(/\s+/g, " ") === s.skill.toLowerCase().replace(/\s+/g, " "))
+                    found = i
+            }
+            if (found >= 0) {
+                draftSkills.setProperty(found, "level", s.level)
+            } else {
+                draftSkills.append({ skill: s.skill, level: s.level })
+                ++added
+            }
+        }
+        const details = Object.assign({}, draftDetails)
+        for (const key of ["projects", "education", "certifications", "achievements"]) {
+            const merged = (details[key] ?? []).slice()
+            for (const item of changes[key] ?? [])
+                if (!merged.some(m => m.toLowerCase() === item.toLowerCase()))
+                    merged.push(item)
+            details[key] = merged
+        }
+        details.skillYears = Object.assign({}, details.skillYears ?? {}, changes.skillYears)
+        if (changes.totalYears >= 0)
+            details.totalYears = changes.totalYears
+        draftDetails = details
+        skillsRevision++
+        message(qsTr("Added from your resume: %1. Check each step, then save.")
+                .arg(Theme.count(added, qsTr("new skill"), qsTr("new skills"))))
+    }
+    function yearsIn(skill) {
+        void draftDetails
+        const years = (draftDetails.skillYears ?? {})[skill.toLowerCase()] ?? (draftDetails.skillYears ?? {})[skill]
+        return years === undefined ? -1 : years
+    }
+    function detailCount(key) {
+        return (draftDetails[key] ?? []).length
+    }
+
     function addInterest(name) {
         const key = name.trim()
         if (key === "" || draftInterests.some(s => s.toLowerCase() === key.toLowerCase()))
@@ -129,9 +179,17 @@ Item {
         id: picker
         onPicked: editor.claimed()
     }
+    ResumeReviewDrawer {
+        id: resumeReview
+        draftSkills: editor.skillsRevision >= 0 ? editor.skillList() : []
+        onApplied: changes => editor.applyResume(changes)
+    }
 
     ScrollView {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: navBar.top
         contentWidth: availableWidth
         clip: true
 
@@ -250,6 +308,11 @@ Item {
                     // 01 Profile
                     ColumnLayout {
                         spacing: 14
+                        ResumeImport {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: 4
+                            onReviewRequested: resumeReview.open()
+                        }
                         TfText { text: qsTr("Full name"); variant: "label" }
                         TfTextField {
                             text: editor.draftName
@@ -302,6 +365,11 @@ Item {
                                     onClicked: if (Backend.useDemoParticipant()) editor.claimed()
                                 }
                             }
+                        }
+                        MotivationQuote {
+                            moment: "register"
+                            Layout.fillWidth: true
+                            Layout.topMargin: 8
                         }
                     }
 
@@ -371,6 +439,14 @@ Item {
                                 }
                             }
                         }
+                        // Encouragement for the skills chosen so far; changes with the selection.
+                        MotivationQuote {
+                            moment: "skills"
+                            skills: editor.skillsRevision >= 0 ? editor.skillList() : []
+                            learningCount: editor.draftInterests.length
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                        }
                         TfText {
                             text: qsTr("Popular on TeamForge")
                             variant: "label"
@@ -432,6 +508,19 @@ Item {
                                         variant: "secondary"
                                         font.weight: Font.Bold
                                         Layout.preferredWidth: 124
+                                    }
+                                    // Years the resume states for this skill, when it was imported.
+                                    TfText {
+                                        readonly property real years: editor.yearsIn(levelRow.skill)
+                                        visible: years >= 0
+                                        text: qsTr("%1 yrs").arg(years)
+                                        variant: "muted"
+                                        font.weight: Font.Bold
+                                        Layout.preferredWidth: 64
+                                        ToolTip.visible: yearsHover.hovered
+                                        ToolTip.delay: 400
+                                        ToolTip.text: qsTr("Experience stated in your resume")
+                                        HoverHandler { id: yearsHover }
                                     }
                                 }
                             }
@@ -507,6 +596,14 @@ Item {
                                 }
                             }
                         }
+                        // Follows the levels and learning interests set above.
+                        MotivationQuote {
+                            moment: "skills"
+                            skills: editor.skillsRevision >= 0 ? editor.skillList() : []
+                            learningCount: editor.draftInterests.length
+                            Layout.fillWidth: true
+                            Layout.topMargin: 24
+                        }
                     }
 
                     // 04 Ready
@@ -553,8 +650,35 @@ Item {
                                 }
                             }
                         }
+                        // Details from the resume, at a glance.
+                        Flow {
+                            visible: editor.detailCount("projects") + editor.detailCount("education")
+                                     + editor.detailCount("certifications") + editor.detailCount("achievements") > 0
+                                     || (editor.draftDetails.totalYears ?? -1) >= 0
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Repeater {
+                                model: [[editor.detailCount("projects"), qsTr("project"), qsTr("projects")],
+                                        [editor.detailCount("education"), qsTr("qualification"), qsTr("qualifications")],
+                                        [editor.detailCount("certifications"), qsTr("certification"), qsTr("certifications")],
+                                        [editor.detailCount("achievements"), qsTr("achievement"), qsTr("achievements")]]
+                                delegate: Chip {
+                                    required property var modelData
+                                    visible: modelData[0] > 0
+                                    large: true
+                                    tone: "info"
+                                    text: Theme.count(modelData[0], modelData[1], modelData[2])
+                                }
+                            }
+                            Chip {
+                                visible: (editor.draftDetails.totalYears ?? -1) >= 0
+                                large: true
+                                tone: "warning"
+                                text: qsTr("%1 years experience").arg(editor.draftDetails.totalYears ?? 0)
+                            }
+                        }
                         TfText { text: qsTr("Profile checklist"); variant: "label" }
-                        // Compact, so the Finish button stays in view on small windows.
+                        // Compact, so the profile fits on small windows.
                         Flow {
                             Layout.fillWidth: true
                             spacing: 8
@@ -572,45 +696,59 @@ Item {
                 }
             }
 
-            // Navigation
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                TfButton {
-                    text: qsTr("Back")
-                    variant: "ghost"
-                    enabled: editor.step > 0
-                    onClicked: { editor.showErrors = false; editor.step-- }
-                }
-                TfButton {
-                    visible: editor.editing
-                    text: qsTr("Cancel")
-                    variant: "ghost"
-                    onClicked: editor.cancelled()
-                }
-                TfText {
-                    visible: editor.showErrors && editor.blocker(editor.step) !== ""
-                    text: editor.blocker(editor.step)
-                    color: Theme.warning
-                    font.weight: Font.Bold
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignRight
-                }
-                Item { Layout.fillWidth: true; visible: !(editor.showErrors && editor.blocker(editor.step) !== "") }
-                TfButton {
-                    visible: editor.editing && editor.step < editor.steps.length - 1
-                    text: qsTr("Save profile")
-                    onClicked: editor.finish()
-                }
-                TfButton {
-                    text: editor.step < editor.steps.length - 1 ? qsTr("Continue") : editor.editing ? qsTr("Save profile") : qsTr("Finish")
-                    variant: "primary"
-                    Layout.preferredWidth: 150
-                    onClicked: editor.next()
-                }
-            }
-
             Item { Layout.preferredHeight: 20 }
+        }
+    }
+
+    // Navigation, pinned under the steps so Back / Continue / Finish are always in view however
+    // long a step (or its motivational quote) gets.
+    Rectangle {
+        id: navBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        implicitHeight: navRow.implicitHeight + 28
+        color: Theme.background
+        Rectangle { width: parent.width; height: 1; color: Theme.border }
+
+        RowLayout {
+            id: navRow
+            width: Math.min(parent.width - 48, 900)
+            x: (parent.width - width) / 2
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 10
+            TfButton {
+                text: qsTr("Back")
+                variant: "ghost"
+                enabled: editor.step > 0
+                onClicked: { editor.showErrors = false; editor.step-- }
+            }
+            TfButton {
+                visible: editor.editing
+                text: qsTr("Cancel")
+                variant: "ghost"
+                onClicked: editor.cancelled()
+            }
+            TfText {
+                visible: editor.showErrors && editor.blocker(editor.step) !== ""
+                text: editor.blocker(editor.step)
+                color: Theme.warning
+                font.weight: Font.Bold
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignRight
+            }
+            Item { Layout.fillWidth: true; visible: !(editor.showErrors && editor.blocker(editor.step) !== "") }
+            TfButton {
+                visible: editor.editing && editor.step < editor.steps.length - 1
+                text: qsTr("Save profile")
+                onClicked: editor.finish()
+            }
+            TfButton {
+                text: editor.step < editor.steps.length - 1 ? qsTr("Continue") : editor.editing ? qsTr("Save profile") : qsTr("Finish")
+                variant: "primary"
+                Layout.preferredWidth: 150
+                onClicked: editor.next()
+            }
         }
     }
 }

@@ -388,6 +388,13 @@ TfPage {
                         width: parent.width
                         spacing: 26
 
+                        MotivationQuote {
+                            visible: page.creating && !page.developerMode
+                            moment: "host_project"
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 760
+                        }
+
                         // 1. Basics
                         ColumnLayout {
                             spacing: 12

@@ -79,6 +79,23 @@ QVariantMap studentToMap(const Student& student)
         {QStringLiteral("skillsOffered"), skillLevelList(student.skillsOffered(), "level")},
         {QStringLiteral("averageLevel"), average},
         {QStringLiteral("skillsWanted"), toQStringList(student.skillsWanted())},
+        {QStringLiteral("details"), detailsToMap(student.details())},
+    };
+}
+
+QVariantMap detailsToMap(const ProfileDetails& details)
+{
+    QVariantMap years;
+    for (const auto& [skill, value] : details.skillYears)
+        years.insert(qs(skill), value);
+    return {
+        {QStringLiteral("projects"), toQStringList(details.projects)},
+        {QStringLiteral("education"), toQStringList(details.education)},
+        {QStringLiteral("certifications"), toQStringList(details.certifications)},
+        {QStringLiteral("achievements"), toQStringList(details.achievements)},
+        {QStringLiteral("skillYears"), years},
+        {QStringLiteral("totalYears"), details.totalYears},
+        {QStringLiteral("empty"), details.empty()},
     };
 }
 
@@ -122,15 +139,42 @@ std::vector<std::string> stringsFrom(const QVariant& value)
     return result;
 }
 
-Student studentFrom(const QVariantMap& map)
+Student studentFrom(const QVariantMap& map, const Student *previous)
 {
-    return Student(ss(map.value(QStringLiteral("id")).toString()),
-                   ss(map.value(QStringLiteral("name")).toString()),
-                   ss(map.value(QStringLiteral("role")).toString()),
-                   skillLevelsFrom(map.value(QStringLiteral("skillsOffered")), "level"),
-                   stringsFrom(map.value(QStringLiteral("skillsWanted"))),
-                   ss(map.value(QStringLiteral("summary")).toString()),
-                   ss(map.value(QStringLiteral("program")).toString()));
+    Student student(ss(map.value(QStringLiteral("id")).toString()),
+                    ss(map.value(QStringLiteral("name")).toString()),
+                    ss(map.value(QStringLiteral("role")).toString()),
+                    skillLevelsFrom(map.value(QStringLiteral("skillsOffered")), "level"),
+                    stringsFrom(map.value(QStringLiteral("skillsWanted"))),
+                    ss(map.value(QStringLiteral("summary")).toString()),
+                    ss(map.value(QStringLiteral("program")).toString()));
+    // Details may come flat or as the "details" map studentToMap produces.
+    const QVariantMap nested = map.value(QStringLiteral("details")).toMap();
+    const QVariantMap& source = map.contains(QStringLiteral("details")) ? nested : map;
+    const QStringList keys{QStringLiteral("projects"), QStringLiteral("education"), QStringLiteral("certifications"),
+                           QStringLiteral("achievements"), QStringLiteral("skillYears"), QStringLiteral("totalYears")};
+    const bool given = std::any_of(keys.begin(), keys.end(), [&](const QString& key) { return source.contains(key); });
+    if (given) {
+        ProfileDetails details;
+        details.projects = stringsFrom(source.value(QStringLiteral("projects")));
+        details.education = stringsFrom(source.value(QStringLiteral("education")));
+        details.certifications = stringsFrom(source.value(QStringLiteral("certifications")));
+        details.achievements = stringsFrom(source.value(QStringLiteral("achievements")));
+        const QVariantMap years = source.value(QStringLiteral("skillYears")).toMap();
+        for (auto it = years.cbegin(); it != years.cend(); ++it) {
+            bool ok = false;
+            const double value = it.value().toDouble(&ok);
+            if (!ok)
+                throw ValidationError("Years for '" + ss(it.key()) + "' must be a number");
+            details.skillYears[ss(it.key())] = value;
+        }
+        const QVariant total = source.value(QStringLiteral("totalYears"));
+        details.totalYears = total.isValid() && !total.isNull() ? total.toDouble() : -1;
+        student.setDetails(details);
+    } else if (previous != nullptr) {
+        student.setDetails(previous->details());
+    }
+    return student;
 }
 
 ProjectRequirement requirementFrom(const QVariantMap& map)
