@@ -267,8 +267,13 @@ public:
     Q_INVOKABLE bool deleteResumeCopy();
 
     // --- interest workflow ---------------------------------------------------------------------
-    // Participant: express interest in a project (saved immediately).
-    Q_INVOKABLE bool expressInterest(const QString& requirementId);
+    // Participant: express interest in a project, with an optional note for the host (at most
+    // 500 characters; saved immediately).
+    Q_INVOKABLE bool expressInterest(const QString& requirementId, const QString& note = QString());
+    // Participant: change (or clear) the note on their own request, until the host reviews it.
+    Q_INVOKABLE bool updateInterestNote(const QString& requirementId, const QString& note);
+    // Host: reply to a request (or change / clear the reply), at any stage; saved immediately.
+    Q_INVOKABLE bool replyToInterest(const QString& requestId, const QString& reply);
     // Host: the project's requests, best fit first within each status:
     // [{id, status, studentId, number, name, program, topSkills, experience, averageLevel, score}].
     Q_INVOKABLE QVariantList projectInterests(const QString& requirementId) const;

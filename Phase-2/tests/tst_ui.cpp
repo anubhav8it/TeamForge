@@ -35,6 +35,7 @@ private slots:
     void hostReviewsApplicants();
     void motivationalQuotesFollowTheJourney();
     void resumeImportFillsTheDraft();
+    void interestNoteReachesTheHost();
     void noAvailabilityAnywhere();
 
 private:
@@ -526,6 +527,82 @@ void TestUi::resumeImportFillsTheDraft()
     QVERIFY(QMetaObject::invokeMethod(editor, "finish"));
     QTRY_VERIFY(!backend_->myProfileId().isEmpty());
     QCOMPARE(backend_->myProfile().value("details").toMap().value("certifications").toList().size(), 2);
+}
+
+void TestUi::interestNoteReachesTheHost()
+{
+    QVERIFY(backend_->enterWorkspace("participant"));
+    QVERIFY(backend_->useDemoParticipant());
+    goToPage(2);
+    QString openId;
+    for (const QVariant& entry : backend_->opportunities()) {
+        if (entry.toMap().value("interestStatus").toString().isEmpty()) {
+            openId = entry.toMap().value("id").toString();
+            break;
+        }
+    }
+    QVERIFY(!openId.isEmpty());
+    QObject *drawer = objectOfType("OpportunityDrawer");
+    QVERIFY(drawer);
+    QVERIFY(QMetaObject::invokeMethod(drawer, "show", Q_ARG(QVariant, openId)));
+    QTRY_COMPARE(drawer->property("position").toReal(), 1.0);
+    auto *content = drawer->property("contentItem").value<QQuickItem *>();
+    QVERIFY(content);
+    // A button with this text in the drawer (labels can share the text, e.g. "How joining works").
+    const auto inDrawer = [&](const QString& text) -> QQuickItem * {
+        QQuickItem *label = nullptr;
+        for (QQuickItem *item : itemsWithText(text)) {
+            if (!content->isAncestorOf(item))
+                continue;
+            if (item->inherits("QQuickAbstractButton"))
+                return item;
+            if (!label)
+                label = item;
+        }
+        return label;
+    };
+    const auto click = [&](QQuickItem *item) {
+        QTest::mouseClick(window_, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
+    };
+
+    // The note box opens on request; the note goes out with the interest.
+    QQuickItem *addNote = inDrawer("+ Add a note for the host (optional)");
+    QVERIFY(addNote);
+    click(addNote);
+    QTRY_VERIFY(drawer->property("writingNote").toBool());
+    QQuickItem *box = nullptr;
+    const std::function<void(QQuickItem *)> find = [&](QQuickItem *item) {
+        if (!box && item->isVisible() && QByteArray(item->metaObject()->className()).startsWith("TfTextArea"))
+            box = item;
+        for (QQuickItem *child : item->childItems())
+            find(child);
+    };
+    find(content);
+    QVERIFY(box);
+    box->setProperty("text", "Happy to take the frontend; I have two React projects.");
+    QTRY_VERIFY(anyVisibleText(QStringLiteral("54 / 500")));
+    QQuickItem *express = inDrawer("Express interest");
+    QVERIFY(express);
+    click(express);
+    QString requestId;
+    QTRY_VERIFY(!(requestId = [&] {
+        for (const QVariant& e : backend_->myInterests())
+            if (e.toMap().value("id").toString() == openId)
+                return e.toMap().value("interestId").toString();
+        return QString();
+    }()).isEmpty());
+    QTRY_VERIFY(inDrawer("Messages"));
+    QVERIFY(inDrawer("Happy to take the frontend; I have two React projects."));
+    QVERIFY(QMetaObject::invokeMethod(drawer, "close"));
+
+    // The host sees it under the applicant on the Applicants page.
+    QVERIFY(backend_->enterWorkspace("host"));
+    backend_->setCurrentRequirementId(openId);
+    goToPage(2);
+    QTRY_VERIFY(anyVisibleText(QString::fromUtf8("\u201CHappy to take the frontend; I have two React projects.\u201D")));
+    QVERIFY(!itemsWithText("Reply").isEmpty());
+    QVERIFY(backend_->replyToInterest(requestId, "Welcome! Frontend is yours."));
+    QTRY_VERIFY(anyVisibleText(QStringLiteral("You replied: Welcome! Frontend is yours.")));
 }
 
 void TestUi::noAvailabilityAnywhere()

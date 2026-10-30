@@ -20,9 +20,11 @@ Item {
     function whyThisMatch(requirementId) {
         workspace.explainFit(Backend.myProfileId, requirementId)
     }
-    function expressInterest(requirementId) {
-        if (Backend.expressInterest(requirementId))
-            workspace.notify(qsTr("Interest sent. The host will review it."))
+    function expressInterest(requirementId, note) {
+        const message = (note ?? "").trim()
+        if (Backend.expressInterest(requirementId, message))
+            workspace.notify(message !== "" ? qsTr("Interest and note sent. The host will review it.")
+                                            : qsTr("Interest sent. The host will review it."))
     }
 
     ProfileEditor {
@@ -75,6 +77,6 @@ Item {
     OpportunityDrawer {
         id: opportunityDrawer
         onWhyThisMatch: id => workspace.whyThisMatch(id)
-        onExpressInterest: id => workspace.expressInterest(id)
+        onExpressInterest: (id, note) => workspace.expressInterest(id, note)
     }
 }

@@ -1050,9 +1050,17 @@ QString TeamForgeController::friendlyMessage(const QString& op, const QString& t
         return QStringLiteral("Couldn't update your profile. Check the required fields.");
     if (op == QLatin1String("evaluateFit"))
         return QStringLiteral("Couldn't load this opportunity.");
-    if (op == QLatin1String("expressInterest"))
-        return type == QLatin1String("DuplicateError") ? QStringLiteral("You've already expressed interest in this project.")
-                                                      : QStringLiteral("Couldn't send your interest. Please try again.");
+    if (op == QLatin1String("expressInterest")) {
+        if (type == QLatin1String("DuplicateError"))
+            return QStringLiteral("You've already expressed interest in this project.");
+        if (type == QLatin1String("ValidationError"))
+            return QStringLiteral("Couldn't send your interest. Keep the note under 500 characters.");
+        return QStringLiteral("Couldn't send your interest. Please try again.");
+    }
+    if (op == QLatin1String("updateInterestNote"))
+        return QStringLiteral("Couldn't save your note. Keep it under 500 characters; it can't change once the host is reviewing it.");
+    if (op == QLatin1String("replyToInterest"))
+        return QStringLiteral("Couldn't send your reply. Keep it under 500 characters.");
     if (op == QLatin1String("acceptInterest") || op == QLatin1String("declineInterest")
         || op == QLatin1String("reviewInterest"))
         return QStringLiteral("Couldn't update this request. Please try again.");

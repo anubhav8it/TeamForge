@@ -56,6 +56,7 @@ private slots:
     void developerPreviewNeedsNoOnboarding();
     void summarySentences();
     void interestWorkflow();
+    void interestNotesAndReplies();
     void previewWithChosenIdentity();
     void databaseNumbering();
     void rankingsDifferByProject();
@@ -887,6 +888,65 @@ void TestController::summarySentences()
     QCOMPARE(keys, (QStringList{"coverage", "complementarity", "experience", "engagement", "diversity"}));
     TF_COMPARE_NEAR(c.factorDefinitions().at(3).toMap().value("weight").toDouble(), 0.10);
     QCOMPARE(c.profileCompletion({}).value("checklist").toList().size(), 4);
+}
+
+void TestController::interestNotesAndReplies()
+{
+    TeamForgeController c(dataDir());
+    const auto opportunity = [&](const QString& id) {
+        for (const QVariant& entry : c.opportunities())
+            if (entry.toMap().value("id").toString() == id)
+                return entry.toMap();
+        return QVariantMap{};
+    };
+    const auto request = [&](const QString& requirementId, const QString& requestId) {
+        for (const QVariant& entry : c.projectInterests(requirementId))
+            if (entry.toMap().value("id").toString() == requestId)
+                return entry.toMap();
+        return QVariantMap{};
+    };
+
+    // A participant sends interest with a note, then edits it while it is still new.
+    QVERIFY(c.enterWorkspace("participant"));
+    QVERIFY(c.useDemoParticipant());
+    QVERIFY(!c.expressInterest("req-003", QString(501, QLatin1Char('x')))); // too long
+    QCOMPARE(c.lastError(), QStringLiteral("Couldn't send your interest. Keep the note under 500 characters."));
+    QVERIFY(opportunity("req-003").value("interestStatus").toString().isEmpty()); // nothing half-sent
+    QVERIFY2(c.expressInterest("req-003", "I've built two React apps; happy to take the frontend."),
+             qPrintable(c.lastErrorDetail().value("message").toString()));
+    QVariantMap mine = opportunity("req-003");
+    QCOMPARE(mine.value("interestNote").toString(), QStringLiteral("I've built two React apps; happy to take the frontend."));
+    QVERIFY(mine.value("noteEditable").toBool());
+    QVERIFY(c.updateInterestNote("req-003", "Frontend, or testing if that is covered."));
+    const QString requestId = opportunity("req-003").value("interestId").toString();
+    QVERIFY(!c.replyToInterest(requestId, "hi")); // participants don't reply
+    QVERIFY(!c.updateInterestNote("req-001-missing", "x"));
+
+    // The host sees the note and replies; reviewing locks the participant's note.
+    QVERIFY(c.enterWorkspace("host"));
+    QCOMPARE(request("req-003", requestId).value("note").toString(), QStringLiteral("Frontend, or testing if that is covered."));
+    QVERIFY(!c.updateInterestNote("req-003", "host edit")); // hosts don't edit notes
+    QVERIFY(c.reviewInterest(requestId));
+    QVERIFY(c.replyToInterest(requestId, "Thanks! Frontend is open; bring your portfolio."));
+    QVERIFY(!c.replyToInterest(requestId, QString(600, QLatin1Char('y'))));
+    QCOMPARE(c.lastError(), QStringLiteral("Couldn't send your reply. Keep it under 500 characters."));
+    QCOMPARE(request("req-003", requestId).value("reply").toString(), QStringLiteral("Thanks! Frontend is open; bring your portfolio."));
+    QVERIFY(!c.isDirty()); // saved straight away
+
+    // Stored: a fresh controller shows the participant the reply, and the note is now fixed.
+    TeamForgeController reloaded(dataDir());
+    QVERIFY(reloaded.enterWorkspace("participant"));
+    QVERIFY(reloaded.useDemoParticipant());
+    QVariantMap seen;
+    for (const QVariant& entry : reloaded.myInterests())
+        if (entry.toMap().value("id").toString() == "req-003")
+            seen = entry.toMap();
+    QCOMPARE(seen.value("interestReply").toString(), QStringLiteral("Thanks! Frontend is open; bring your portfolio."));
+    QVERIFY(!seen.value("noteEditable").toBool());
+    QVERIFY(!reloaded.updateInterestNote("req-003", "too late"));
+    // The log says a note was sent, never what it says.
+    for (const QVariant& entry : c.logEntries())
+        QVERIFY(!entry.toMap().value("message").toString().contains("React"));
 }
 
 void TestController::interestWorkflow()

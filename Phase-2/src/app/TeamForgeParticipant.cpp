@@ -135,6 +135,9 @@ QVariantMap TeamForgeController::opportunityFor(const Student& student, const Pr
     map.insert(QStringLiteral("requiredCount"), static_cast<int>(requirement.requiredSkills().size()));
     map.insert(QStringLiteral("interestStatus"), interest != nullptr ? qs(interestStatusName(interest->status())) : QString());
     map.insert(QStringLiteral("interestId"), interest != nullptr ? qs(interest->id()) : QString());
+    map.insert(QStringLiteral("interestNote"), interest != nullptr ? qs(interest->note()) : QString());
+    map.insert(QStringLiteral("interestReply"), interest != nullptr ? qs(interest->reply()) : QString());
+    map.insert(QStringLiteral("noteEditable"), interest != nullptr && interest->status() == InterestStatus::Interested);
     map.insert(QStringLiteral("keySkills"), keySkills);
     map.insert(QStringLiteral("match"), matchResultToMap(result, empty, true));
     return map;
@@ -302,7 +305,7 @@ QVariantList TeamForgeController::myInterests() const
     return list;
 }
 
-bool TeamForgeController::expressInterest(const QString& requirementId)
+bool TeamForgeController::expressInterest(const QString& requirementId, const QString& note)
 {
     const bool ok = run("expressInterest", requirementId, [&] {
         require(Permission::EditOwnProfile);
@@ -310,10 +313,12 @@ bool TeamForgeController::expressInterest(const QString& requirementId)
         if (me == nullptr)
             throw ValidationError("Create or choose your profile before expressing interest");
         const ProjectRequirement& requirement = requirements_.get(ss(requirementId)); // NotFoundError
-        interests_.express(me->id(), requirement.id()); // DuplicateError if already expressed
+        interests_.express(me->id(), requirement.id(), ss(note)); // DuplicateError if already expressed
         setDirty(true);
         logEvent(AppLog::Level::Info, QStringLiteral("interest"),
-                 QStringLiteral("%1 expressed interest in %2").arg(qs(me->name()), qs(requirement.name())));
+                 QStringLiteral("%1 expressed interest in %2%3")
+                     .arg(qs(me->name()), qs(requirement.name()),
+                          note.trimmed().isEmpty() ? QString() : QStringLiteral(" (with a note)")));
     });
     if (!ok)
         return false;
@@ -321,6 +326,25 @@ bool TeamForgeController::expressInterest(const QString& requirementId)
     refresh(); // the engagement factor changed
     emit interestsChanged();
     return save(); // like a saved team, written immediately
+}
+
+bool TeamForgeController::updateInterestNote(const QString& requirementId, const QString& note)
+{
+    const bool ok = run("updateInterestNote", requirementId, [&] {
+        require(Permission::EditOwnProfile);
+        const InterestRequest *request = interests_.find(ownProfileId(), ss(requirementId));
+        if (request == nullptr)
+            throw NotFoundError("No interest request for '" + ss(requirementId) + "'");
+        interests_.setNote(request->id(), ss(note)); // ValidationError once under review
+        setDirty(true);
+        logEvent(AppLog::Level::Info, QStringLiteral("interest"),
+                 QStringLiteral("Note updated on %1").arg(qs(request->id())));
+    });
+    if (!ok)
+        return false;
+    notifyDataChanged();
+    emit interestsChanged();
+    return save();
 }
 
 // --- directory search ------------------------------------------------------------------------
