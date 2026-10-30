@@ -105,14 +105,32 @@ jobs:
             Phase-2/web/static/app/TeamForge.wasm
             Phase-2/web/static/app/qtloader.js
 
+      # Someone may push to the branch while this build runs (a README edit, say); a plain push
+      # is then refused. So the built files are put on top of the branch's newest commit and
+      # pushed, retrying a few times if the branch moves again.
       - name: Commit the build so Render deploys it
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f web/static/app/TeamForge.js web/static/app/TeamForge.wasm web/static/app/qtloader.js
-          if git diff --cached --quiet; then
-            echo "Build output unchanged; nothing to commit."
-          else
-            git commit -m "Build TeamForge for WebAssembly [skip ci]"
-            git push
-          fi
+          files="web/static/app/TeamForge.js web/static/app/TeamForge.wasm web/static/app/qtloader.js"
+          keep="$RUNNER_TEMP/teamforge-build"
+          mkdir -p "$keep"
+          cp $files "$keep/"
+          for attempt in 1 2 3 4 5; do
+            git fetch --depth=1 origin "$GITHUB_REF_NAME"
+            git checkout -q -f -B "$GITHUB_REF_NAME" FETCH_HEAD
+            for f in $files; do cp "$keep/$(basename "$f")" "$f"; done
+            git add -f $files
+            if git diff --cached --quiet; then
+              echo "Build output unchanged; nothing to commit."
+              exit 0
+            fi
+            git commit -q -m "Build TeamForge for WebAssembly [skip ci]"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then
+              exit 0
+            fi
+            echo "The branch moved while building (attempt $attempt); trying again."
+            sleep $((attempt * 5))
+          done
+          echo "Could not push the build after 5 attempts." >&2
+          exit 1
