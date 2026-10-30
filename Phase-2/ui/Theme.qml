@@ -153,6 +153,27 @@ QtObject {
         return name === "participant" ? qsTr("Participant") : name === "developer" ? qsTr("Developer") : qsTr("Host")
     }
 
+    // Motivational quotes (Backend.motivation): a short label and a two-colour gradient per
+    // category, from the palette's meanings: blue = the participant's own skills and learning,
+    // amber = experience, teal = complementarity / working together, red = hosts and building,
+    // violet = new ideas, green = growth.
+    readonly property var quoteStyles: ({
+        "first_skill":      { label: qsTr("First steps"),   from: info,    to: teal },
+        "single_skill":     { label: qsTr("Focus"),         from: info,    to: violet },
+        "multi_skill":      { label: qsTr("Versatility"),   from: teal,    to: info },
+        "learning":         { label: qsTr("Keep learning"), from: info,    to: success },
+        "expertise":        { label: qsTr("Experience"),    from: warning, to: accent },
+        "collaboration":    { label: qsTr("Collaboration"), from: teal,    to: success },
+        "teamwork":         { label: qsTr("Teamwork"),      from: success, to: teal },
+        "leadership":       { label: qsTr("Leadership"),    from: accent,  to: warning },
+        "innovation":       { label: qsTr("Innovation"),    from: violet,  to: info },
+        "project_building": { label: qsTr("Build"),         from: accent,  to: violet },
+        "growth":           { label: qsTr("Growth"),        from: success, to: info }
+    })
+    function quoteStyle(category: string): var {
+        return quoteStyles[category] ?? quoteStyles["growth"]
+    }
+
     // Score bands for quick scanning of ranked lists.
     function scoreColor(score: real): color {
         return score >= 0.7 ? success : score >= 0.5 ? warning : textSecondary

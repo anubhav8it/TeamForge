@@ -817,7 +817,8 @@ bool TeamForgeController::saveStudent(const QVariantMap& student)
 {
     const bool ok = run("saveStudent", student.value(QStringLiteral("id")).toString(), [&] {
         require(Permission::EditAnyProfile);
-        upsertStudent(studentFrom(student)); // core validation
+        const Student *existing = engine_.students().find(ss(student.value(QStringLiteral("id")).toString()));
+        upsertStudent(studentFrom(student, existing)); // core validation
     });
     if (ok)
         notifyDataChanged();

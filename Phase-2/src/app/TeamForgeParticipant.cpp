@@ -202,7 +202,7 @@ bool TeamForgeController::saveMyProfile(const QVariantMap& profile)
             role = strongest == skills.end() ? QStringLiteral("Generalist") : qs(normalizeSkill(strongest->first));
         }
         map.insert(QStringLiteral("role"), role);
-        const Student parsed = studentFrom(map); // core validation
+        const Student parsed = studentFrom(map, existing); // core validation
         if (existing != nullptr)
             engine_.updateStudent(parsed);
         else

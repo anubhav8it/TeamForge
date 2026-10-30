@@ -187,13 +187,44 @@ std::vector<T> loadAll(const std::string& path, const char *key, const char *ent
 // One record <-> one JSON object. The file loaders/savers and the single-record functions
 // (developer inspector) share these, so both use exactly the stored format.
 
+// Optional profile details (Student::setDetails). Absent fields stay empty, so files without them
+// load as before and are saved unchanged.
+ProfileDetails detailsField(const QJsonObject& o)
+{
+    ProfileDetails details;
+    details.projects = stringListField(o, "projects");
+    details.education = stringListField(o, "education");
+    details.certifications = stringListField(o, "certifications");
+    details.achievements = stringListField(o, "achievements");
+    const QJsonValue years = o.value(QLatin1String("skillYears"));
+    if (!years.isUndefined()) {
+        if (!years.isObject())
+            throw ValidationError("field 'skillYears' must be an object of skill: years");
+        const QJsonObject map = years.toObject();
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            if (!it.value().isDouble())
+                throw ValidationError("years for '" + toStdString(it.key()) + "' must be a number");
+            details.skillYears[toStdString(it.key())] = it.value().toDouble();
+        }
+    }
+    const QJsonValue total = o.value(QLatin1String("totalYears"));
+    if (!total.isUndefined()) {
+        if (!total.isDouble())
+            throw ValidationError("field 'totalYears' must be a number");
+        details.totalYears = total.toDouble();
+    }
+    return details;
+}
+
 Student parseStudent(const QJsonObject& o)
 {
     // Files from before availability was removed may still carry "availability"; like any
     // unknown field it is ignored, and the next save drops it.
-    return Student(stringField(o, "id"), stringField(o, "name"), stringField(o, "role"),
-                   skillLevelsField(o, "skillsOffered"), stringListField(o, "skillsWanted"),
-                   optionalStringField(o, "summary"), optionalStringField(o, "program"));
+    Student student(stringField(o, "id"), stringField(o, "name"), stringField(o, "role"),
+                    skillLevelsField(o, "skillsOffered"), stringListField(o, "skillsWanted"),
+                    optionalStringField(o, "summary"), optionalStringField(o, "program"));
+    student.setDetails(detailsField(o));
+    return student;
 }
 
 QJsonObject studentObject(const Student& s)
@@ -208,6 +239,22 @@ QJsonObject studentObject(const Student& s)
         o.insert(QLatin1String("program"), toQString(s.program()));
     o.insert(QLatin1String("skillsOffered"), toJsonObject(s.skillsOffered()));
     o.insert(QLatin1String("skillsWanted"), toJsonArray({s.skillsWanted().begin(), s.skillsWanted().end()}));
+    // Profile details only when there are some, so existing records keep their exact form.
+    const ProfileDetails& d = s.details();
+    const std::pair<const char *, const std::vector<std::string> *> lists[] = {
+        {"projects", &d.projects}, {"education", &d.education}, {"certifications", &d.certifications},
+        {"achievements", &d.achievements}};
+    for (const auto& [key, items] : lists)
+        if (!items->empty())
+            o.insert(QLatin1String(key), toJsonArray(*items));
+    if (!d.skillYears.empty()) {
+        QJsonObject years;
+        for (const auto& [skill, value] : d.skillYears)
+            years.insert(toQString(skill), value);
+        o.insert(QLatin1String("skillYears"), years);
+    }
+    if (d.totalYears >= 0)
+        o.insert(QLatin1String("totalYears"), d.totalYears);
     return o;
 }
 

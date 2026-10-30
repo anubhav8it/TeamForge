@@ -24,6 +24,62 @@ Student::Student(const std::string& id, const std::string& name, const std::stri
         skillsWanted_.insert(normalizeSkill(skill));
 }
 
+bool ProfileDetails::empty() const
+{
+    return projects.empty() && education.empty() && certifications.empty() && achievements.empty()
+           && skillYears.empty() && totalYears < 0;
+}
+
+namespace {
+
+constexpr std::size_t kMaxDetailItems = 20;
+constexpr std::size_t kMaxDetailLength = 300;
+constexpr double kMaxYears = 60;
+
+std::vector<std::string> cleanItems(const std::vector<std::string>& items)
+{
+    std::vector<std::string> result;
+    for (const std::string& item : items) {
+        std::string text = trimmed(item);
+        if (text.size() > kMaxDetailLength) {
+            std::size_t cut = kMaxDetailLength;
+            while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
+                --cut; // keep UTF-8 characters whole
+            text.resize(cut);
+        }
+        if (!text.empty() && result.size() < kMaxDetailItems)
+            result.push_back(std::move(text));
+    }
+    return result;
+}
+
+void checkYears(double years, const std::string& what)
+{
+    if (!(years >= 0 && years <= kMaxYears))
+        throw ValidationError(what + " must be between 0 and 60 years");
+}
+
+} // namespace
+
+void Student::setDetails(const ProfileDetails& details)
+{
+    ProfileDetails clean;
+    clean.projects = cleanItems(details.projects);
+    clean.education = cleanItems(details.education);
+    clean.certifications = cleanItems(details.certifications);
+    clean.achievements = cleanItems(details.achievements);
+    for (const auto& [skill, years] : details.skillYears) {
+        const std::string key = normalizeSkill(skill);
+        checkYears(years, "Experience in '" + key + "'");
+        if (skillsOffered_.count(key) != 0)
+            clean.skillYears[key] = years;
+    }
+    if (details.totalYears >= 0)
+        checkYears(details.totalYears, "Total experience");
+    clean.totalYears = details.totalYears < 0 ? -1 : details.totalYears;
+    details_ = std::move(clean);
+}
+
 int Student::levelIn(std::string_view skill) const
 {
     const auto it = skillsOffered_.find(normalizeSkill(skill));

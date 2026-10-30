@@ -1,14 +1,18 @@
 add_library(teamforge_core STATIC
     CoverageOnlyStrategy.cpp CoverageOnlyStrategy.h
+    DocumentText.cpp DocumentText.h
     Errors.h
+    Inflate.cpp Inflate.h
     Interest.cpp Interest.h
     JsonStorage.cpp JsonStorage.h
     MatchingEngine.cpp MatchingEngine.h
     MatchingStrategy.cpp MatchingStrategy.h
     MatchResult.cpp MatchResult.h
+    Motivation.cpp Motivation.h
     ProjectRequirement.cpp ProjectRequirement.h
     Ranker.cpp Ranker.h
     Repository.h
+    ResumeAnalyzer.cpp ResumeAnalyzer.h
     Skill.cpp Skill.h
     SkillBST.cpp SkillBST.h
     SkillGraph.cpp SkillGraph.h

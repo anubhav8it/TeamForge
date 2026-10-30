@@ -60,6 +60,8 @@ private slots:
     void databaseNumbering();
     void rankingsDifferByProject();
     void workspacesLimitedByAccountRole();
+    void resumeImportEndToEnd();
+    void profileDetailsSurviveEdits();
 
 private:
     QString dataDir() const { return dir_->path(); }
@@ -1064,6 +1066,124 @@ void TestController::workspacesLimitedByAccountRole()
     QVERIFY(!limited->lastError().isEmpty());
     QVERIFY(limited->enterWorkspace("host"));
     QCOMPARE(limited->workspace(), QStringLiteral("host"));
+}
+
+namespace {
+QByteArray resumeFixture(const char *name)
+{
+    QFile file(QStringLiteral(TEAMFORGE_SOURCE_DIR "/tests/data/resumes/") + QString::fromLatin1(name));
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+QString resumeState(const TeamForgeController& c)
+{
+    return c.resume().value("state").toString();
+}
+} // namespace
+
+void TestController::resumeImportEndToEnd()
+{
+    TeamForgeController c(dataDir());
+    // Only a participant imports a resume, and only for their own profile.
+    QVERIFY(!c.analyseResumeData("cv.pdf", resumeFixture("priya-nair.pdf")));
+    QCOMPARE(resumeState(c), QStringLiteral("idle"));
+    QVERIFY(c.enterWorkspace("host"));
+    QVERIFY(!c.analyseResumeData("cv.pdf", resumeFixture("priya-nair.pdf")));
+
+    QVERIFY(c.enterWorkspace("participant"));
+    QVERIFY(c.analyseResumeData("priya-nair.pdf", resumeFixture("priya-nair.pdf")));
+    QCOMPARE(resumeState(c), QStringLiteral("working")); // analysed in the background
+    QTRY_COMPARE(resumeState(c), QStringLiteral("ready"));
+    const QVariantMap result = c.resume().value("result").toMap();
+    QCOMPARE(result.value("name").toString(), QStringLiteral("Priya Nair"));
+    QVariantMap python;
+    for (const QVariant& s : result.value("skills").toList())
+        if (s.toMap().value("skill") == QStringLiteral("python"))
+            python = s.toMap();
+    QCOMPARE(python.value("category").toString(), QStringLiteral("Programming")); // the catalogue's category
+    QCOMPARE(python.value("suggestedLevel").toInt(), 3);
+    QVERIFY(python.value("evidence").toString().contains("Python (4 years)"));
+    QVERIFY(result.value("unmatchedSkills").toStringList().contains("REST APIs"));
+    QVERIFY(!c.resume().value("canKeepCopy").toBool()); // no saved profile yet
+
+    // The log names neither the file nor the person.
+    for (const QVariant& entry : c.logEntries()) {
+        const QString message = entry.toMap().value("message").toString();
+        QVERIFY2(!message.contains("Priya") && !message.contains("priya-nair"), qPrintable(message));
+    }
+
+    // Wrong type, too large, empty: reported on the import card, not as an app error.
+    QVERIFY(!c.analyseResumeData("notes.txt", "just some notes"));
+    QCOMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("PDF and DOCX"));
+    QVERIFY(c.lastError().isEmpty());
+    qputenv("TEAMFORGE_RESUME_MAX_MB", "1");
+    QCOMPARE(c.resumeMaxMegabytes(), 1);
+    QVERIFY(!c.analyseResumeData("big.pdf", QByteArray("%PDF-1.4\n") + QByteArray(2 * 1024 * 1024, ' ')));
+    QVERIFY(c.resume().value("error").toString().contains("up to 1 MB"));
+    qunsetenv("TEAMFORGE_RESUME_MAX_MB");
+    QVERIFY(c.analyseResumeData("broken.docx", QByteArray("PK\x03\x04 not really a zip"))); // fails in the background
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("damaged"));
+
+    // A cleared analysis never comes back.
+    QVERIFY(c.analyseResumeData("rahul.docx", resumeFixture("rahul-verma.docx")));
+    c.clearResume();
+    QTest::qWait(300);
+    QCOMPARE(resumeState(c), QStringLiteral("idle"));
+
+    // A private copy (desktop) needs a saved profile; it lives outside the shared data files.
+    QVERIFY(c.useDemoParticipant());
+    QVERIFY(c.analyseResumeData("rahul.docx", resumeFixture("rahul-verma.docx")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("ready"));
+    QVERIFY(c.resume().value("canKeepCopy").toBool());
+    QVERIFY(c.keepResumeCopy());
+    QVERIFY(c.resume().value("hasCopy").toBool());
+    QVERIFY(QFile::exists(dataDir() + "/private/resume-TF-P001.docx"));
+    for (const QString& shared : sampledata::files())
+        QVERIFY(!shared.contains("private"));
+    QVERIFY(c.deleteResumeCopy());
+    QVERIFY(!QFile::exists(dataDir() + "/private/resume-TF-P001.docx"));
+    QVERIFY(!c.resume().value("hasCopy").toBool());
+}
+
+void TestController::profileDetailsSurviveEdits()
+{
+    {
+        TeamForgeController c(dataDir());
+        QVERIFY(c.enterWorkspace("participant"));
+        const QVariantMap draft{
+            {"name", "Ira Menon"},
+            {"skillsOffered", QVariantList{QVariantMap{{"skill", "Python"}, {"level", 3}},
+                                           QVariantMap{{"skill", "SQL"}, {"level", 2}}}},
+            {"details", QVariantMap{{"projects", QStringList{"CampusRide", " "}},
+                                    {"certifications", QStringList{"AWS Cloud Practitioner"}},
+                                    {"skillYears", QVariantMap{{"python", 4.0}, {"rust", 1.0}}},
+                                    {"totalYears", 3.5}}}};
+        QVERIFY2(c.saveMyProfile(draft), qPrintable(c.lastErrorDetail().value("message").toString()));
+        const QVariantMap details = c.myProfile().value("details").toMap();
+        QCOMPARE(details.value("projects").toStringList(), QStringList{"CampusRide"});
+        QCOMPARE(details.value("skillYears").toMap().value("python").toDouble(), 4.0);
+        QVERIFY(!details.value("skillYears").toMap().contains("rust")); // not an offered skill
+        // Saving without any details keys (an older form) keeps them.
+        QVariantMap plain = draft;
+        plain.remove("details");
+        plain["summary"] = "Python and SQL.";
+        QVERIFY(c.saveMyProfile(plain));
+        QCOMPARE(c.myProfile().value("details").toMap().value("totalYears").toDouble(), 3.5);
+    }
+    // Stored on disk: a fresh controller reads them back.
+    TeamForgeController c(dataDir());
+    QVERIFY(c.enterWorkspace("participant"));
+    QCOMPARE(c.myProfile().value("details").toMap().value("certifications").toStringList(),
+             QStringList{"AWS Cloud Practitioner"});
+    const QString me = c.myProfileId();
+    // Renaming a skill moves its years with it.
+    QVERIFY(c.enterWorkspace("developer"));
+    QVERIFY2(c.renameSkill("python", "Python 3"), qPrintable(c.lastError()));
+    const QVariantList students = c.students();
+    for (const QVariant& s : students)
+        if (s.toMap().value("id").toString() == me)
+            QCOMPARE(s.toMap().value("details").toMap().value("skillYears").toMap().value("python 3").toDouble(), 4.0);
 }
 
 QTEST_GUILESS_MAIN(TestController)

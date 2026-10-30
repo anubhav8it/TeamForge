@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge Quote Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sidebar:#1A1E25; --bg:#20252D; --surface:#2A303A; --raised:#343B47; --border:#3A424F;
+  --text:#F8F9FB; --text2:#D2D7DF; --muted:#A3ACB8; --accent:#F0434A;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:Manrope, system-ui, sans-serif; font-weight:500; }
+main { max-width:1080px; margin:0 auto; padding:40px 16px 64px; }
+.eyebrow { color:#FF5C62; font-size:13px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; }
+h1 { font-size:clamp(28px,5vw,40px); font-weight:800; letter-spacing:-0.6px; margin:6px 0 8px; }
+.lead { color:var(--text2); font-size:17px; max-width:760px; line-height:1.5; }
+.stats { display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 34px; }
+.stats span { background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:8px 14px; font-weight:700; font-size:15px; }
+.stats b { color:var(--text); font-weight:800; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap:16px; }
+.cat { position:relative; overflow:hidden; border-radius:16px; padding:20px 22px 12px;
+  background:linear-gradient(180deg, var(--raised), var(--surface));
+  border:1px solid color-mix(in srgb, var(--from) 38%, transparent); }
+.cat::before { content:""; position:absolute; inset:-40% auto auto -20%; width:70%; aspect-ratio:1;
+  background:radial-gradient(circle, color-mix(in srgb, var(--from) 30%, transparent), transparent 65%); pointer-events:none; }
+.cat::after { content:""; position:absolute; inset:auto -20% -50% auto; width:60%; aspect-ratio:1;
+  background:radial-gradient(circle, color-mix(in srgb, var(--to) 24%, transparent), transparent 65%); pointer-events:none; }
+.cat > * { position:relative; z-index:1; }
+header { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.lamp { width:9px; height:9px; border-radius:50%; background:var(--from); box-shadow:0 0 10px var(--from); }
+h2 { margin:0; font-size:13px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; color:color-mix(in srgb, var(--from) 80%, white); }
+code { font-size:12px; color:var(--muted); background:#1E232B; border-radius:6px; padding:2px 7px; }
+.swatch { margin-left:auto; color:var(--muted); font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px; }
+.swatch i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+.when { color:var(--muted); font-size:14px; margin:8px 0 6px; font-weight:700; }
+ol { list-style:none; margin:0; padding:0; }
+li { display:flex; gap:12px; align-items:baseline; padding:11px 0; border-top:1px solid rgba(255,255,255,0.06); }
+li:first-child { border-top:0; }
+.n { color:var(--muted); font-size:13px; font-weight:800; min-width:22px; }
+li p { margin:0; font-size:18px; font-weight:800; letter-spacing:-0.2px; line-height:1.35;
+  text-shadow:1px 1px 0 #0d0f13, 2px 2px 0 #0d0f13, 3px 3px 6px rgba(0,0,0,0.45); }
+.key { background:linear-gradient(90deg, var(--from), var(--to)); -webkit-background-clip:text; background-clip:text;
+  color:transparent; text-shadow:none; filter:drop-shadow(0 0 8px color-mix(in srgb, var(--to) 55%, transparent)); }
+.rules { margin-top:34px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; }
+.rules h3 { margin:0 0 10px; font-size:21px; font-weight:800; }
+.rules p, .rules li { color:var(--text2); font-size:15px; line-height:1.55; }
+.rules ol { list-style:decimal; padding-left:22px; }
+.rules li { display:list-item; border:0; padding:3px 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .cat { transition:transform .25s ease, border-color .25s ease; }
+  .cat:hover { transform:translateY(-3px); border-color:color-mix(in srgb, var(--from) 65%, transparent); }
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">TeamForge · Phase III</div>
+  <h1>Motivational quote library</h1>
+  <p class="lead">Every quote shown in the app, grouped by when it appears. Each one is original, exactly ten words,
+  and has one key word that the app lights up in its category's gradient. Colours come from TeamForge's own palette
+  (<code>ui/Theme.qml</code>) and keep their meanings: blue for the participant's own skills, amber for experience,
+  teal for working together, red for hosts and building, violet for new ideas, green for growth.</p>
+  <div class="stats">
+    <span><b>66</b> quotes</span><span><b>11</b> categories</span>
+    <span><b>10</b> words each, checked in C++ and in tests</span>
+  </div>
+  <div class="grid">
+<section class="cat" style="--from:#5AB0FF;--to:#2DD4BF">
+  <header>
+    <span class="lamp"></span>
+    <h2>First steps</h2>
+    <code>first_skill</code>
+    <span class="swatch"><i style="background:#5AB0FF"></i>info → <i style="background:#2DD4BF"></i>teal</span>
+  </header>
+  <p class="when">Skill step, no skills entered yet</p>
+  <ol><li><span class="n">01</span><p>Every expert started somewhere; your journey begins with one <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">skill.</span></p></li>
+<li><span class="n">02</span><p>Add your first skill and watch new <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">doors</span> begin opening.</p></li>
+<li><span class="n">03</span><p>One skill on your profile quietly starts something much <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">bigger.</span></p></li>
+<li><span class="n">04</span><p>Name what you know today; some team needs exactly <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">that.</span></p></li>
+<li><span class="n">05</span><p>Small beginnings count; list your first skill and keep <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">going.</span></p></li>
+<li><span class="n">06</span><p>Your profile is a blank canvas; paint it with <span class="key" style="--from:#5AB0FF;--to:#2DD4BF">skills.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#5AB0FF;--to:#A78BFA">
+  <header>
+    <span class="lamp"></span>
+    <h2>Focus</h2>
+    <code>single_skill</code>
+    <span class="swatch"><i style="background:#5AB0FF"></i>info → <i style="background:#A78BFA"></i>violet</span>
+  </header>
+  <p class="when">Exactly one skill (level 3+)</p>
+  <ol><li><span class="n">01</span><p>Mastering one skill opens doors; combining skills creates new <span class="key" style="--from:#5AB0FF;--to:#A78BFA">possibilities.</span></p></li>
+<li><span class="n">02</span><p>A single focused skill can anchor an entire team&#x27;s <span class="key" style="--from:#5AB0FF;--to:#A78BFA">project.</span></p></li>
+<li><span class="n">03</span><p>Depth in one area makes you easy to build <span class="key" style="--from:#5AB0FF;--to:#A78BFA">around.</span></p></li>
+<li><span class="n">04</span><p>Sharpen this skill today; tomorrow, let a second one <span class="key" style="--from:#5AB0FF;--to:#A78BFA">join.</span></p></li>
+<li><span class="n">05</span><p>One skill, practised with care, is a promise of <span class="key" style="--from:#5AB0FF;--to:#A78BFA">quality.</span></p></li>
+<li><span class="n">06</span><p>Focus builds momentum; your one skill is already a <span class="key" style="--from:#5AB0FF;--to:#A78BFA">contribution.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#2DD4BF;--to:#5AB0FF">
+  <header>
+    <span class="lamp"></span>
+    <h2>Versatility</h2>
+    <code>multi_skill</code>
+    <span class="swatch"><i style="background:#2DD4BF"></i>teal → <i style="background:#5AB0FF"></i>info</span>
+  </header>
+  <p class="when">Two or more skills (level 3+)</p>
+  <ol><li><span class="n">01</span><p>Deep expertise builds confidence; versatile skills help you adapt <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">faster.</span></p></li>
+<li><span class="n">02</span><p>Several skills give you more ways to fill team <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">gaps.</span></p></li>
+<li><span class="n">03</span><p>Different skills connect like bridges between ideas, teams and <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">people.</span></p></li>
+<li><span class="n">04</span><p>Range is a strength: switch roles whenever the project <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">shifts.</span></p></li>
+<li><span class="n">05</span><p>Combine what you know and new solutions start to <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">appear.</span></p></li>
+<li><span class="n">06</span><p>Many skills, one profile: bring a toolkit, not a <span class="key" style="--from:#2DD4BF;--to:#5AB0FF">tool.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#5AB0FF;--to:#3DD598">
+  <header>
+    <span class="lamp"></span>
+    <h2>Keep learning</h2>
+    <code>learning</code>
+    <span class="swatch"><i style="background:#5AB0FF"></i>info → <i style="background:#3DD598"></i>success</span>
+  </header>
+  <p class="when">Every skill at Beginner/Basic, or learning interests added (mixed in)</p>
+  <ol><li><span class="n">01</span><p>Keep learning; every new skill gives your ideas another <span class="key" style="--from:#5AB0FF;--to:#3DD598">direction.</span></p></li>
+<li><span class="n">02</span><p>Curiosity is a skill; let it guide your next <span class="key" style="--from:#5AB0FF;--to:#3DD598">step.</span></p></li>
+<li><span class="n">03</span><p>What you learn this semester becomes what you build <span class="key" style="--from:#5AB0FF;--to:#3DD598">next.</span></p></li>
+<li><span class="n">04</span><p>Good questions drive real progress; keep asking and keep <span class="key" style="--from:#5AB0FF;--to:#3DD598">growing.</span></p></li>
+<li><span class="n">05</span><p>Every project becomes a classroom when you&#x27;re ready to <span class="key" style="--from:#5AB0FF;--to:#3DD598">learn.</span></p></li>
+<li><span class="n">06</span><p>The skills you want to learn today become tomorrow&#x27;s <span class="key" style="--from:#5AB0FF;--to:#3DD598">strengths.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#FFB547;--to:#F0434A">
+  <header>
+    <span class="lamp"></span>
+    <h2>Experience</h2>
+    <code>expertise</code>
+    <span class="swatch"><i style="background:#FFB547"></i>warning → <i style="background:#F0434A"></i>accent</span>
+  </header>
+  <p class="when">At least half the skills self-rated Advanced or Expert (4+)</p>
+  <ol><li><span class="n">01</span><p>Your expertise becomes truly powerful when shared with ambitious <span class="key" style="--from:#FFB547;--to:#F0434A">collaborators.</span></p></li>
+<li><span class="n">02</span><p>Strong skills shine brightest when you help others rise <span class="key" style="--from:#FFB547;--to:#F0434A">too.</span></p></li>
+<li><span class="n">03</span><p>Experience is a gift; mentoring a teammate multiplies its <span class="key" style="--from:#FFB547;--to:#F0434A">value.</span></p></li>
+<li><span class="n">04</span><p>Advanced skills set the bar; great teams raise it <span class="key" style="--from:#FFB547;--to:#F0434A">together.</span></p></li>
+<li><span class="n">05</span><p>Your depth can unblock a whole team; share it <span class="key" style="--from:#FFB547;--to:#F0434A">generously.</span></p></li>
+<li><span class="n">06</span><p>Hard-earned skills deserve a project that truly matches their <span class="key" style="--from:#FFB547;--to:#F0434A">ambition.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#2DD4BF;--to:#3DD598">
+  <header>
+    <span class="lamp"></span>
+    <h2>Collaboration</h2>
+    <code>collaboration</code>
+    <span class="swatch"><i style="background:#2DD4BF"></i>teal → <i style="background:#3DD598"></i>success</span>
+  </header>
+  <p class="when">Just before Express interest</p>
+  <ol><li><span class="n">01</span><p>Great teams transform individual strengths into <span class="key" style="--from:#2DD4BF;--to:#3DD598">shared</span> achievements every day.</p></li>
+<li><span class="n">02</span><p>Your next great opportunity often begins with the right <span class="key" style="--from:#2DD4BF;--to:#3DD598">collaboration.</span></p></li>
+<li><span class="n">03</span><p>Bring your skills, share your ideas and build something <span class="key" style="--from:#2DD4BF;--to:#3DD598">meaningful.</span></p></li>
+<li><span class="n">04</span><p>Collaboration turns good ideas into projects that people actually <span class="key" style="--from:#2DD4BF;--to:#3DD598">use.</span></p></li>
+<li><span class="n">05</span><p>Two perspectives catch what one misses; that is collaboration&#x27;s <span class="key" style="--from:#2DD4BF;--to:#3DD598">power.</span></p></li>
+<li><span class="n">06</span><p>Join with open ears; the best solutions are built <span class="key" style="--from:#2DD4BF;--to:#3DD598">together.</span></p></li>
+<li><span class="n">07</span><p>Your talent deserves a team that truly believes in <span class="key" style="--from:#2DD4BF;--to:#3DD598">possibilities.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#3DD598;--to:#2DD4BF">
+  <header>
+    <span class="lamp"></span>
+    <h2>Teamwork</h2>
+    <code>teamwork</code>
+    <span class="swatch"><i style="background:#3DD598"></i>success → <i style="background:#2DD4BF"></i>teal</span>
+  </header>
+  <p class="when">Just before Express interest</p>
+  <ol><li><span class="n">01</span><p>Alone we code features; together we ship products people <span class="key" style="--from:#3DD598;--to:#2DD4BF">love.</span></p></li>
+<li><span class="n">02</span><p>A team is strongest when every member&#x27;s skill has <span class="key" style="--from:#3DD598;--to:#2DD4BF">space.</span></p></li>
+<li><span class="n">03</span><p>Complementary skills make teams that are greater than their <span class="key" style="--from:#3DD598;--to:#2DD4BF">parts.</span></p></li>
+<li><span class="n">04</span><p>Show up, speak up, lift up the people beside <span class="key" style="--from:#3DD598;--to:#2DD4BF">you.</span></p></li>
+<li><span class="n">05</span><p>Trust grows with every commit, review and honest team <span class="key" style="--from:#3DD598;--to:#2DD4BF">conversation.</span></p></li>
+<li><span class="n">06</span><p>Teams win when each person knows their part and <span class="key" style="--from:#3DD598;--to:#2DD4BF">delivers.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#F0434A;--to:#FFB547">
+  <header>
+    <span class="lamp"></span>
+    <h2>Leadership</h2>
+    <code>leadership</code>
+    <span class="swatch"><i style="background:#F0434A"></i>accent → <i style="background:#FFB547"></i>warning</span>
+  </header>
+  <p class="when">Host creating a new project</p>
+  <ol><li><span class="n">01</span><p>Leaders set the vision, then make room for every <span class="key" style="--from:#F0434A;--to:#FFB547">voice.</span></p></li>
+<li><span class="n">02</span><p>A clear brief is the first gift to your <span class="key" style="--from:#F0434A;--to:#FFB547">team.</span></p></li>
+<li><span class="n">03</span><p>Great hosts choose complementary people, never just copies of <span class="key" style="--from:#F0434A;--to:#FFB547">themselves.</span></p></li>
+<li><span class="n">04</span><p>Lead by listening; the best teams are built on <span class="key" style="--from:#F0434A;--to:#FFB547">trust.</span></p></li>
+<li><span class="n">05</span><p>Define the goal, name the skills, then let talent <span class="key" style="--from:#F0434A;--to:#FFB547">lead.</span></p></li>
+<li><span class="n">06</span><p>Every strong team starts with someone brave enough to <span class="key" style="--from:#F0434A;--to:#FFB547">begin.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#A78BFA;--to:#5AB0FF">
+  <header>
+    <span class="lamp"></span>
+    <h2>Innovation</h2>
+    <code>innovation</code>
+    <span class="swatch"><i style="background:#A78BFA"></i>violet → <i style="background:#5AB0FF"></i>info</span>
+  </header>
+  <p class="when">Host creating a new project</p>
+  <ol><li><span class="n">01</span><p>New ideas live where different skills meet and collide <span class="key" style="--from:#A78BFA;--to:#5AB0FF">productively.</span></p></li>
+<li><span class="n">02</span><p>Innovation is rarely solo; it needs curious minds working <span class="key" style="--from:#A78BFA;--to:#5AB0FF">together.</span></p></li>
+<li><span class="n">03</span><p>Bold prototypes beat perfect plans; build fast, learn faster, <span class="key" style="--from:#A78BFA;--to:#5AB0FF">improve.</span></p></li>
+<li><span class="n">04</span><p>Question the obvious; <span class="key" style="--from:#A78BFA;--to:#5AB0FF">breakthroughs</span> hide behind the words why not.</p></li>
+<li><span class="n">05</span><p>Fresh perspectives turn ordinary problems into truly <span class="key" style="--from:#A78BFA;--to:#5AB0FF">extraordinary</span> student projects.</p></li>
+<li><span class="n">06</span><p>Today&#x27;s small experiment could become the tool everyone uses <span class="key" style="--from:#A78BFA;--to:#5AB0FF">tomorrow.</span></p></li></ol>
+</section>
+<section class="cat" style="--from:#F0434A;--to:#A78BFA">
+  <header>
+    <span class="lamp"></span>
+    <h2>Build</h2>
+    <code>project_building</code>
+    <span class="swatch"><i style="background:#F0434A"></i>accent → <i style="background:#A78BFA"></i>violet</span>
+  </header>
+  <p class="when">Host creating a new project</p>
+  <ol><li><span class="n">01</span><p>Build connections today; create extraordinary projects with your team <span class="key" style="--from:#F0434A;--to:#A78BFA">tomorrow.</span></p></li>
+<li><span class="n">02</span><p>Great skills become powerful when the right team comes <span class="key" style="--from:#F0434A;--to:#A78BFA">together.</span></p></li>
+<li><span class="n">03</span><p>Ship something small this week; momentum builds bigger things <span class="key" style="--from:#F0434A;--to:#A78BFA">later.</span></p></li>
+<li><span class="n">04</span><p>Every finished project is proof your team can do <span class="key" style="--from:#F0434A;--to:#A78BFA">more.</span></p></li>
+<li><span class="n">05</span><p>From first sketch to final demo, build <span class="key" style="--from:#F0434A;--to:#A78BFA">step</span> by step.</p></li></ol>
+</section>
+<section class="cat" style="--from:#3DD598;--to:#5AB0FF">
+  <header>
+    <span class="lamp"></span>
+    <h2>Growth</h2>
+    <code>growth</code>
+    <span class="swatch"><i style="background:#3DD598"></i>success → <i style="background:#5AB0FF"></i>info</span>
+  </header>
+  <p class="when">Onboarding step 01 (name and programme)</p>
+  <ol><li><span class="n">01</span><p>Grow one project at a time; each one teaches <span class="key" style="--from:#3DD598;--to:#5AB0FF">something.</span></p></li>
+<li><span class="n">02</span><p>Your profile tells a story; keep adding chapters worth <span class="key" style="--from:#3DD598;--to:#5AB0FF">reading.</span></p></li>
+<li><span class="n">03</span><p>Progress beats perfection; today&#x27;s profile is a strong starting <span class="key" style="--from:#3DD598;--to:#5AB0FF">point.</span></p></li>
+<li><span class="n">04</span><p>Careers grow from projects, people and the courage to <span class="key" style="--from:#3DD598;--to:#5AB0FF">start.</span></p></li>
+<li><span class="n">05</span><p>Each team you join adds new skills to your <span class="key" style="--from:#3DD598;--to:#5AB0FF">story.</span></p></li>
+<li><span class="n">06</span><p>Professional growth starts when you say yes to real <span class="key" style="--from:#3DD598;--to:#5AB0FF">challenges.</span></p></li></ol>
+</section></div>
+  <div class="rules">
+    <h3>How the app chooses (core/Motivation.cpp)</h3>
+    <ol>
+      <li>No skills yet → First steps.</li>
+      <li>At least half the skills self-rated level 4+ → Experience. Entering a skill alone never triggers it.</li>
+      <li>Every skill at level 1–2 → Keep learning.</li>
+      <li>One skill → Focus; two or more → Versatility. Learning interests add Keep learning to the pool.</li>
+      <li>Before Express interest → Collaboration or Teamwork. New host project → Leadership, Build or Innovation.
+        Onboarding step 01 → Growth.</li>
+    </ol>
+    <p>Within one visit the quote stays put while the rule's result stays the same, so typing never reshuffles it.
+    The last six quotes shown are held in a queue and skipped while another is available, so the same quote never
+    comes straight back. Quotes never affect matching, ranking or any score.</p>
+  </div>
+</main>
+</body>
+</html>

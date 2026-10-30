@@ -1,5 +1,6 @@
 #include "TeamForgeController.h"
 
+#include <QAbstractItemModel>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -32,6 +33,8 @@ private slots:
     void developerToolsOnlyInDeveloperWorkspace();
     void developerSeesEveryRecord();
     void hostReviewsApplicants();
+    void motivationalQuotesFollowTheJourney();
+    void resumeImportFillsTheDraft();
     void noAvailabilityAnywhere();
 
 private:
@@ -45,6 +48,9 @@ private:
     QString visibleTextContaining(const QString& part) const;
     bool toolTipShown(const QString& text) const;
     void goToPage(int index);
+    // The quote on screen in the visible MotivationQuote for `moment` ({} if none is visible).
+    QVariantMap visibleQuote(const QString& moment) const;
+    QObject *objectOfType(const char *typeName) const;
 
     std::unique_ptr<QTemporaryDir> dir_;
     std::unique_ptr<QQmlApplicationEngine> engine_;
@@ -143,6 +149,32 @@ bool TestUi::toolTipShown(const QString& text) const
             return true;
     }
     return false;
+}
+
+QVariantMap TestUi::visibleQuote(const QString& moment) const
+{
+    QVariantMap found;
+    const std::function<void(QQuickItem *)> visit = [&](QQuickItem *item) {
+        if (!found.isEmpty() || !item->isVisible())
+            return;
+        if (item->property("moment").toString() == moment && item->property("shown").isValid()) {
+            found = item->property("shown").toMap();
+            return;
+        }
+        for (QQuickItem *child : item->childItems())
+            visit(child);
+    };
+    visit(window_->contentItem());
+    return found;
+}
+
+QObject *TestUi::objectOfType(const char *typeName) const
+{
+    for (QObject *object : engine_->rootObjects().first()->findChildren<QObject *>()) {
+        if (QByteArray(object->metaObject()->className()).startsWith(typeName))
+            return object;
+    }
+    return nullptr;
 }
 
 void TestUi::goToPage(int index)
@@ -346,6 +378,154 @@ void TestUi::hostReviewsApplicants()
     goToPage(4);
     QVERIFY(backend_->acceptedCandidates().size() >= 1);
     QCOMPARE(backend_->currentTeam().value("size").toInt(), 0);
+}
+
+void TestUi::motivationalQuotesFollowTheJourney()
+{
+    const auto words = [](const QVariantMap& quote) {
+        return int(quote.value("text").toString().split(' ', Qt::SkipEmptyParts).size());
+    };
+
+    // Onboarding, step 01: a growth quote.
+    QVERIFY(backend_->enterWorkspace("participant"));
+    backend_->forgetMyProfile();
+    goToPage(0);
+    QTRY_VERIFY(anyVisibleText("Create your profile"));
+    QTRY_COMPARE(visibleQuote("register").value("category").toString(), QString("growth"));
+    QCOMPARE(words(visibleQuote("register")), 10);
+
+    // Step 02, skills: the quote follows the selection without touching the draft.
+    QObject *editor = objectOfType("ProfileEditor");
+    QVERIFY(editor);
+    editor->setProperty("draftName", "Quote Tester");
+    QVERIFY(QMetaObject::invokeMethod(editor, "next"));
+    QTRY_COMPARE(editor->property("step").toInt(), 1);
+    QTRY_COMPARE(visibleQuote("skills").value("category").toString(), QString("first_skill"));
+    QVariant added;
+    QVERIFY(QMetaObject::invokeMethod(editor, "addSkill", Q_RETURN_ARG(QVariant, added), Q_ARG(QVariant, "python")));
+    QTRY_COMPARE(visibleQuote("skills").value("category").toString(), QString("single_skill"));
+    QVERIFY(QMetaObject::invokeMethod(editor, "addSkill", Q_RETURN_ARG(QVariant, added), Q_ARG(QVariant, "react")));
+    QTRY_COMPARE(visibleQuote("skills").value("category").toString(), QString("multi_skill"));
+    const QString multi = visibleQuote("skills").value("text").toString();
+    QCOMPARE(words(visibleQuote("skills")), 10);
+    // A third skill keeps the same rule, so the quote stays put.
+    QVERIFY(QMetaObject::invokeMethod(editor, "addSkill", Q_RETURN_ARG(QVariant, added), Q_ARG(QVariant, "sql")));
+    QTest::qWait(400);
+    QCOMPARE(visibleQuote("skills").value("text").toString(), multi);
+    QVariant skills;
+    QVERIFY(QMetaObject::invokeMethod(editor, "skillList", Q_RETURN_ARG(QVariant, skills)));
+    QCOMPARE(skills.toList().size(), 3);
+    QVERIFY(anyVisibleText("Continue"));
+
+    // The opportunity drawer: the team preview, then the join quote above Express interest.
+    QVERIFY(backend_->useDemoParticipant());
+    goToPage(2);
+    QString openId;
+    for (const QVariant& entry : backend_->opportunities()) {
+        if (entry.toMap().value("interestStatus").toString().isEmpty()) {
+            openId = entry.toMap().value("id").toString();
+            break;
+        }
+    }
+    QVERIFY(!openId.isEmpty());
+    QObject *drawer = objectOfType("OpportunityDrawer");
+    QVERIFY(drawer);
+    QVERIFY(QMetaObject::invokeMethod(drawer, "show", Q_ARG(QVariant, openId)));
+    QTRY_VERIFY(anyVisibleText("Team preview"));
+    QTRY_COMPARE(drawer->property("position").toReal(), 1.0); // fully slid in
+    QTRY_VERIFY(!visibleQuote("join").isEmpty());
+    const QString joinCategory = visibleQuote("join").value("category").toString();
+    QVERIFY(joinCategory == "collaboration" || joinCategory == "teamwork");
+    QCOMPARE(words(visibleQuote("join")), 10);
+    // Express interest is clickable at once: no animation has to finish first.
+    auto *drawerContent = drawer->property("contentItem").value<QQuickItem *>();
+    QVERIFY(drawerContent);
+    QQuickItem *express = nullptr;
+    for (QQuickItem *button : itemsWithText("Express interest")) {
+        if (drawerContent->isAncestorOf(button))
+            express = button; // the drawer's footer, not a card behind it
+    }
+    QVERIFY(express);
+    const QPointF corner = express->mapToScene(QPointF(express->width(), express->height()));
+    QVERIFY(corner.x() <= window_->width() && corner.y() <= window_->height()); // in view
+    const int before = int(backend_->myInterests().size());
+    QTest::mouseClick(window_, Qt::LeftButton, {},
+                      express->mapToScene(QPointF(express->width() / 2, express->height() / 2)).toPoint());
+    QTRY_COMPARE(int(backend_->myInterests().size()), before + 1);
+    QTRY_VERIFY(visibleQuote("join").isEmpty()); // the status takes the quote's place
+    QVERIFY(QMetaObject::invokeMethod(drawer, "close"));
+
+    // Host: the new-project form.
+    QVERIFY(backend_->enterWorkspace("host"));
+    goToPage(1);
+    QTRY_VERIFY(itemWithText("+ New"));
+    QQuickItem *create = itemWithText("+ New");
+    QTest::mouseClick(window_, Qt::LeftButton, {},
+                      create->mapToScene(QPointF(create->width() / 2, create->height() / 2)).toPoint());
+    QTRY_VERIFY(!visibleQuote("host_project").isEmpty());
+    const QString hostCategory = visibleQuote("host_project").value("category").toString();
+    QVERIFY(hostCategory == "leadership" || hostCategory == "project_building" || hostCategory == "innovation");
+}
+
+void TestUi::resumeImportFillsTheDraft()
+{
+    QVERIFY(backend_->enterWorkspace("participant"));
+    backend_->forgetMyProfile();
+    goToPage(0);
+    QTRY_VERIFY(anyVisibleText("Start from your resume"));
+    QVERIFY(anyVisibleText("Choose file"));
+
+    // The file is analysed in the background; the review opens when it is ready.
+    const QUrl file = QUrl::fromLocalFile(QStringLiteral(TEAMFORGE_SOURCE_DIR "/tests/data/resumes/priya-nair.pdf"));
+    QVERIFY(backend_->analyseResumeFile(file));
+    QTRY_VERIFY(anyVisibleText("Review before adding"));
+    QObject *review = objectOfType("ResumeReviewDrawer");
+    QVERIFY(review);
+    QTRY_COMPARE(review->property("position").toReal(), 1.0);
+    QVERIFY(anyVisibleText("PYTHON"));
+    QVERIFY(anyVisibleText("+ REST APIs") || anyVisibleText("+ REST APIS"));
+    QVERIFY(!visibleTextContaining("Choose a level for").isEmpty()); // listed skills with no stated experience
+
+    // Untick everything without a level, then add: only reviewed values reach the draft.
+    QVariant missing;
+    QVERIFY(QMetaObject::invokeMethod(review, "missingLevels", Q_RETURN_ARG(QVariant, missing)));
+    QVERIFY(missing.toInt() > 0);
+    QObject *editor = objectOfType("ProfileEditor");
+    QVERIFY(editor);
+    QQuickItem *add = itemWithText("Add to profile");
+    QVERIFY(add && !add->isEnabled());
+    // Pick a level for every unrated skill, through the same model the level pips write to.
+    QAbstractItemModel *rows = nullptr;
+    for (QObject *child : review->findChildren<QObject *>())
+        if (auto *model = qobject_cast<QAbstractItemModel *>(child))
+            rows = model;
+    QVERIFY(rows);
+    const int levelRole = rows->roleNames().key("level");
+    for (int i = 0; i < rows->rowCount(); ++i) {
+        if (rows->data(rows->index(i, 0), levelRole).toInt() == 0)
+            QVERIFY(QMetaObject::invokeMethod(rows, "setProperty", Q_ARG(int, i), Q_ARG(QString, "level"), Q_ARG(QVariant, 2)));
+    }
+    review->setProperty("revision", review->property("revision").toInt() + 1);
+    QTRY_VERIFY(add->isEnabled());
+    QTest::mouseClick(window_, Qt::LeftButton, {}, add->mapToScene(QPointF(add->width() / 2, add->height() / 2)).toPoint());
+    QTRY_COMPARE(review->property("opened").toBool(), false);
+
+    QCOMPARE(editor->property("draftName").toString(), QStringLiteral("Priya Nair"));
+    QVariant skills;
+    QVERIFY(QMetaObject::invokeMethod(editor, "skillList", Q_RETURN_ARG(QVariant, skills)));
+    bool python = false;
+    for (const QVariant& s : skills.toList())
+        python = python || (s.toMap().value("skill") == QStringLiteral("python") && s.toMap().value("level").toInt() == 3);
+    QVERIFY(python); // 4 years -> Intermediate
+    const QVariantMap details = editor->property("draftDetails").toMap();
+    QCOMPARE(details.value("projects").toList().size(), 2);
+    QCOMPARE(details.value("skillYears").toMap().value("python").toDouble(), 4.0);
+    QCOMPARE(backend_->resume().value("state").toString(), QStringLiteral("idle")); // the file is let go
+
+    // Saved with the profile.
+    QVERIFY(QMetaObject::invokeMethod(editor, "finish"));
+    QTRY_VERIFY(!backend_->myProfileId().isEmpty());
+    QCOMPARE(backend_->myProfile().value("details").toMap().value("certifications").toList().size(), 2);
 }
 
 void TestUi::noAvailabilityAnywhere()

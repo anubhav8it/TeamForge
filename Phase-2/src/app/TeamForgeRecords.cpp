@@ -283,7 +283,19 @@ void TeamForgeController::rewriteSkills(const std::function<SkillLevels(const Sk
         const std::vector<std::string> wanted = editWanted(s.skillsWanted());
         if (offered == s.skillsOffered() && wanted == std::vector<std::string>(s.skillsWanted().begin(), s.skillsWanted().end()))
             continue;
-        students.emplace_back(s.id(), s.name(), s.role(), offered, wanted, s.summary(), s.program());
+        Student& updated = students.emplace_back(s.id(), s.name(), s.role(), offered, wanted, s.summary(), s.program());
+        // Experience per skill follows a renamed or merged skill (the larger figure wins) and is
+        // dropped with a deleted one.
+        ProfileDetails details = s.details();
+        details.skillYears.clear();
+        for (const auto& [skill, years] : s.details().skillYears) {
+            const SkillLevels moved = edit({{skill, 1}});
+            if (!moved.empty()) {
+                double& slot = details.skillYears[moved.begin()->first];
+                slot = std::max(slot, years);
+            }
+        }
+        updated.setDetails(details);
     }
     std::vector<ProjectRequirement> requirements;
     for (const ProjectRequirement& r : requirements_.values()) {

@@ -39,6 +39,7 @@ Item {
             workspace.navigate(0)
         }
         onCancelled: workspace.editing = false
+        onMessage: text => workspace.notify(text)
     }
 
     Item {
