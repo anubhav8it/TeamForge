@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TeamForge</title>
+<meta name="theme-color" content="#1B1F26">
 <link rel="icon" href="/static/img/teamforge_mark_dark.png">
 <link rel="stylesheet" href="/static/css/teamforge.css">
 <link rel="stylesheet" href="/app/app.css">
 </head>
-<body class="app-page">
+<body class="app-page has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
 <header class="app-bar">
   <img src="/static/img/teamforge_mark_dark.png" alt="" class="app-mark">
   <span class="app-name">TeamForge</span>
@@ -27,13 +29,18 @@
 <div class="app-scroll">
   <div id="screen" class="app-screen"></div>
   <div id="loading" class="app-overlay">
-    <img src="/static/img/teamforge_logo_dark.png" alt="TeamForge" class="overlay-logo">
-    <div class="spinner" aria-hidden="true"></div>
-    <p id="loading-text">Loading TeamForge…</p>
-    <p class="overlay-sub">The first visit downloads the app (about 10–15 MB); later visits are faster.</p>
+    <div class="overlay-card">
+      <img src="/static/img/teamforge_logo_dark.png" alt="TeamForge" class="overlay-logo">
+      <div class="progress" aria-hidden="true"><span></span></div>
+      <p id="loading-text">Loading TeamForge…</p>
+      <p class="overlay-sub">The first visit downloads the app (about 13 MB); later visits start from your browser's cache.</p>
+      <p class="quote" id="quote" aria-live="polite"></p>
+    </div>
   </div>
 </div>
 
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
 <script src="/app/qtloader.js"></script>
 <script src="/app/TeamForge.js"></script>
 <script src="/app/app.js"></script>
