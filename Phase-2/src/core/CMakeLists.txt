@@ -13,6 +13,7 @@ add_library(teamforge_core STATIC
     Ranker.cpp Ranker.h
     Repository.h
     ResumeAnalyzer.cpp ResumeAnalyzer.h
+    ScanQuality.cpp ScanQuality.h
     Skill.cpp Skill.h
     SkillBST.cpp SkillBST.h
     SkillGraph.cpp SkillGraph.h

@@ -35,6 +35,7 @@ private slots:
     void hostReviewsApplicants();
     void motivationalQuotesFollowTheJourney();
     void resumeImportFillsTheDraft();
+    void photoResumeAsksBeforeReading();
     void interestNoteReachesTheHost();
     void noAvailabilityAnywhere();
 
@@ -603,6 +604,57 @@ void TestUi::interestNoteReachesTheHost()
     QVERIFY(!itemsWithText("Reply").isEmpty());
     QVERIFY(backend_->replyToInterest(requestId, "Welcome! Frontend is yours."));
     QTRY_VERIFY(anyVisibleText(QStringLiteral("You replied: Welcome! Frontend is yours.")));
+}
+
+void TestUi::photoResumeAsksBeforeReading()
+{
+    QVERIFY(backend_->enterWorkspace("participant"));
+    backend_->forgetMyProfile();
+    goToPage(0);
+    QTRY_VERIFY(anyVisibleText("Start from your resume"));
+    int sent = 0;
+    int sentJob = 0;
+    QString sentType;
+    backend_->setDocumentReader([&](int job, const QByteArray&, const QString& type) {
+        ++sent;
+        sentJob = job;
+        sentType = type;
+    }, 4 * 1024 * 1024);
+    const auto photo = [](const char *name) {
+        return QUrl::fromLocalFile(QStringLiteral(TEAMFORGE_SOURCE_DIR "/tests/data/resumes/") + QString::fromLatin1(name));
+    };
+
+    // A blurry photo: refused on the card, with the reason; nothing is sent.
+    QVERIFY(backend_->analyseResumeFile(photo("photo-blurry.jpg")));
+    QTRY_VERIFY(anyVisibleText("That file couldn't be used"));
+    QVERIFY(!visibleTextContaining("too blurry").isEmpty());
+    QCOMPARE(sent, 0);
+
+    // A sharp one: the card asks first, naming where the picture goes.
+    QVERIFY(backend_->analyseResumeFile(photo("photo-sharp.jpg")));
+    QTRY_VERIFY(anyVisibleText("Read the text from this photo?"));
+    QVERIFY(!visibleTextContaining("Microsoft Azure AI Document Intelligence").isEmpty());
+    QCOMPARE(sent, 0);
+    QQuickItem *read = itemWithText("Read the text");
+    QVERIFY(read && read->isVisible());
+    QTest::mouseClick(window_, Qt::LeftButton, {}, read->mapToScene(QPointF(read->width() / 2, read->height() / 2)).toPoint());
+    QTRY_COMPARE(sent, 1);
+    QCOMPARE(sentType, QStringLiteral("image/jpeg"));
+    QTRY_VERIFY(anyVisibleText("Reading the text (Azure AI)"));
+
+    // The text comes back; the usual review opens.
+    QVariantList confidences;
+    for (int i = 0; i < 10; ++i)
+        confidences.append(0.98);
+    backend_->documentRead(sentJob, {{"text", "PRIYA NAIR\nTechnical Skills\nLanguages: Python (4 years), SQL\n"},
+                                     {"confidences", confidences}, {"pages", 1}});
+    QTRY_VERIFY(anyVisibleText("Review before adding"));
+    QObject *review = objectOfType("ResumeReviewDrawer");
+    QVERIFY(review);
+    QVERIFY(QMetaObject::invokeMethod(review, "close"));
+    QTRY_COMPARE(review->property("opened").toBool(), false);
+    backend_->clearResume();
+    backend_->setDocumentReader({}, 0);
 }
 
 void TestUi::noAvailabilityAnywhere()

@@ -62,6 +62,7 @@ private slots:
     void rankingsDifferByProject();
     void workspacesLimitedByAccountRole();
     void resumeImportEndToEnd();
+    void resumeFromPhotoOrScan();
     void profileDetailsSurviveEdits();
 
 private:
@@ -1172,10 +1173,13 @@ void TestController::resumeImportEndToEnd()
     }
 
     // Wrong type, too large, empty: reported on the import card, not as an app error.
-    QVERIFY(!c.analyseResumeData("notes.txt", "just some notes"));
+    QVERIFY(!c.analyseResumeData("program.exe", QByteArray("MZ\x90\x00\x03\x00\x00\x00", 8)));
     QCOMPARE(resumeState(c), QStringLiteral("error"));
-    QVERIFY(c.resume().value("error").toString().contains("PDF and DOCX"));
+    QVERIFY(c.resume().value("error").toString().contains("PDF, Word (DOCX)"));
     QVERIFY(c.lastError().isEmpty());
+    QVERIFY(c.analyseResumeData("notes.txt", "just some notes")); // a text file, but too short: found in the background
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("No text could be read"));
     qputenv("TEAMFORGE_RESUME_MAX_MB", "1");
     QCOMPARE(c.resumeMaxMegabytes(), 1);
     QVERIFY(!c.analyseResumeData("big.pdf", QByteArray("%PDF-1.4\n") + QByteArray(2 * 1024 * 1024, ' ')));
@@ -1204,6 +1208,111 @@ void TestController::resumeImportEndToEnd()
     QVERIFY(c.deleteResumeCopy());
     QVERIFY(!QFile::exists(dataDir() + "/private/resume-TF-P001.docx"));
     QVERIFY(!c.resume().value("hasCopy").toBool());
+
+    // Other text formats go the same way, read in the app.
+    QVERIFY(c.analyseResumeData("priya.html", resumeFixture("priya-nair.html")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("ready"));
+    QCOMPARE(c.resume().value("result").toMap().value("name").toString(), QStringLiteral("Priya Nair"));
+    QVERIFY(c.analyseResumeData("asha.md", "# Asha Rao\n\n## Skills\n- Python (3 years), SQL, React\n"));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("ready"));
+    QCOMPARE(c.resume().value("result").toMap().value("name").toString(), QStringLiteral("Asha Rao"));
+}
+
+void TestController::resumeFromPhotoOrScan()
+{
+    TeamForgeController c(dataDir());
+    QVERIFY(c.enterWorkspace("participant"));
+
+    // Without a reader (the desktop app): a sharp photo is checked, then explained; nothing is sent.
+    QVERIFY(!c.resume().value("readsPictures").toBool());
+    QVERIFY(c.analyseResumeData("IMG_2041.jpg", resumeFixture("photo-sharp.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY2(c.resume().value("error").toString().contains("web version"), qPrintable(c.resume().value("error").toString()));
+    // A blurry one is refused for being blurry, wherever it is opened.
+    QVERIFY(c.analyseResumeData("IMG_2042.jpg", resumeFixture("photo-blurry.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY2(c.resume().value("error").toString().contains("too blurry"), qPrintable(c.resume().value("error").toString()));
+
+    // With a reader: it is asked only after the person agrees.
+    struct Call { int job; QByteArray bytes; QString type; };
+    QList<Call> calls;
+    c.setDocumentReader([&](int job, const QByteArray& bytes, const QString& type) { calls.append({job, bytes, type}); },
+                        4 * 1024 * 1024);
+    QVERIFY(c.resume().value("readsPictures").toBool());
+    QVERIFY(c.analyseResumeData("IMG_2042.jpg", resumeFixture("photo-blurry.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("too blurry"));
+    QVERIFY(calls.isEmpty()); // a blurry photo is never sent
+
+    QVERIFY(!c.confirmResumeReading()); // nothing waiting
+    QVERIFY(c.analyseResumeData("IMG_2041.jpg", resumeFixture("photo-sharp.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("confirm"));
+    const QVariantMap picture = c.resume().value("picture").toMap();
+    QCOMPARE(picture.value("kind").toString(), QStringLiteral("photo"));
+    QCOMPARE(picture.value("width").toInt(), 950);
+    QVERIFY(calls.isEmpty());
+    QVERIFY(c.confirmResumeReading());
+    QCOMPARE(resumeState(c), QStringLiteral("working"));
+    QCOMPARE(calls.size(), 1);
+    QCOMPARE(calls[0].type, QStringLiteral("image/jpeg"));
+    QVERIFY(calls[0].bytes.startsWith("\xFF\xD8\xFF") && calls[0].bytes.size() <= 4 * 1024 * 1024);
+
+    // The reader's answer is checked and analysed like any other resume.
+    QFile pdf(QStringLiteral(TEAMFORGE_SOURCE_DIR "/tests/data/resumes/priya-nair.html"));
+    const QString words = QStringLiteral("PRIYA NAIR\npriya.nair@example.com\nTechnical Skills\nLanguages: Python (4 years), JavaScript, SQL\n");
+    const auto answer = [&](double confidence) {
+        QVariantList confidences;
+        for (int i = 0; i < 12; ++i)
+            confidences.append(confidence);
+        return QVariantMap{{"text", words}, {"confidences", confidences}, {"pages", 1}};
+    };
+    c.documentRead(calls[0].job + 1, answer(0.99)); // someone else's job: ignored
+    QCOMPARE(resumeState(c), QStringLiteral("working"));
+    c.documentRead(calls[0].job, answer(0.99));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("ready"));
+    QCOMPARE(c.resume().value("result").toMap().value("name").toString(), QStringLiteral("Priya Nair"));
+    QVERIFY(c.resume().value("picture").isNull()); // gone once read
+
+    // Too many uncertain words: refused as too blurry, after reading.
+    QVERIFY(c.analyseResumeData("IMG_2041.jpg", resumeFixture("photo-sharp.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("confirm"));
+    QVERIFY(c.confirmResumeReading());
+    c.documentRead(calls.last().job, answer(0.45));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("too blurry or unclear"));
+    // The server's own message is shown as it is.
+    QVERIFY(c.analyseResumeData("IMG_2041.jpg", resumeFixture("photo-sharp.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("confirm"));
+    QVERIFY(c.confirmResumeReading());
+    c.documentRead(calls.last().job, {{"error", "The text reader is busy. Wait a minute and try again."}});
+    QCOMPARE(resumeState(c), QStringLiteral("error"));
+    QCOMPARE(c.resume().value("error").toString(), QStringLiteral("The text reader is busy. Wait a minute and try again."));
+    // Cancelled while it was being read: a late answer changes nothing.
+    QVERIFY(c.analyseResumeData("IMG_2041.jpg", resumeFixture("photo-sharp.jpg")));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("confirm"));
+    QVERIFY(c.confirmResumeReading());
+    c.clearResume();
+    c.documentRead(calls.last().job, answer(0.99));
+    QTest::qWait(100);
+    QCOMPARE(resumeState(c), QStringLiteral("idle"));
+
+    // A PDF with no text (a scan) is sent as it is, once agreed.
+    const QByteArray scan("%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
+                          "2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+    QVERIFY(c.analyseResumeData("scan.pdf", scan));
+    QTRY_COMPARE(resumeState(c), QStringLiteral("confirm"));
+    QCOMPARE(c.resume().value("picture").toMap().value("kind").toString(), QStringLiteral("scan"));
+    QVERIFY(c.confirmResumeReading());
+    QCOMPARE(calls.last().type, QStringLiteral("application/pdf"));
+    QCOMPARE(calls.last().bytes, scan);
+    c.setDocumentReader([&](int job, const QByteArray& bytes, const QString& type) { calls.append({job, bytes, type}); }, 64);
+    QVERIFY(c.analyseResumeData("scan.pdf", scan)); // over this reader's limit
+    QTRY_COMPARE(resumeState(c), QStringLiteral("error"));
+    QVERIFY(c.resume().value("error").toString().contains("scans can be read up to"));
+
+    // The log says what kind of file was sent, never what it said.
+    for (const QVariant& entry : c.logEntries())
+        QVERIFY(!entry.toMap().value("message").toString().contains("Priya", Qt::CaseInsensitive));
 }
 
 void TestController::profileDetailsSurviveEdits()

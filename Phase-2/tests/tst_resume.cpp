@@ -3,18 +3,23 @@
 #include "core/Inflate.h"
 #include "core/JsonStorage.h"
 #include "core/ResumeAnalyzer.h"
+#include "core/ScanQuality.h"
 #include "core/Student.h"
 
 #include <QFile>
 #include <QtTest>
 
 #include <algorithm>
+#include <cstdint>
+#include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace teamforge;
 
-// Resume import in the core: DEFLATE, DOCX and PDF text, and the rule-based analysis.
+// Resume import in the core: DEFLATE; DOCX, ODT, PDF, RTF, text and HTML text; checks on photos
+// and on OCR text; and the rule-based analysis.
 class TestResume : public QObject
 {
     Q_OBJECT
@@ -27,6 +32,12 @@ private slots:
     void pdfFixtureText();
     void syntheticPdfLinesAndKerning();
     void encryptedAndImageOnlyPdfsAreReported();
+    void odtDocuments();
+    void rtfDocuments();
+    void htmlAndPlainText();
+    void picturesNeedReading();
+    void scanQualityChecks();
+    void readTextIsCheckedForBlur();
 
     void levelBoundaries();
     void trieFindsLongestPhrase();
@@ -46,6 +57,9 @@ private:
     static std::vector<std::string> catalogue();
     static std::string pdf(const std::string& content, bool compress, const std::string& trailerExtra = {});
     static const ResumeSkill *find(const ResumeAnalysis& a, const std::string& skill);
+    static std::string storedZip(const std::vector<std::pair<std::string, std::string>>& files);
+    static GreyImage printedPage(int width, int height);
+    static GreyImage blurred(const GreyImage& image, int passes);
 };
 
 std::string TestResume::fixture(const char *name)
@@ -91,6 +105,86 @@ const ResumeSkill *TestResume::find(const ResumeAnalysis& a, const std::string& 
     return it == a.skills.end() ? nullptr : &*it;
 }
 
+// A ZIP with uncompressed (stored) entries, as an ODT test file.
+std::string TestResume::storedZip(const std::vector<std::pair<std::string, std::string>>& files)
+{
+    const auto crc32 = [](const std::string& data) {
+        std::uint32_t crc = 0xFFFFFFFFu;
+        for (unsigned char c : data) {
+            crc ^= c;
+            for (int k = 0; k < 8; ++k)
+                crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+        }
+        return ~crc;
+    };
+    const auto le = [](std::string& out, std::uint32_t value, int bytes) {
+        for (int i = 0; i < bytes; ++i)
+            out += static_cast<char>((value >> (8 * i)) & 0xFF);
+    };
+    std::string zip;
+    std::string directory;
+    for (const auto& [name, data] : files) {
+        const auto offset = static_cast<std::uint32_t>(zip.size());
+        const std::uint32_t crc = crc32(data);
+        const auto size = static_cast<std::uint32_t>(data.size());
+        const auto nameLength = static_cast<std::uint32_t>(name.size());
+        le(zip, 0x04034b50u, 4); le(zip, 20, 2); le(zip, 0, 2); le(zip, 0, 2); le(zip, 0, 4);
+        le(zip, crc, 4); le(zip, size, 4); le(zip, size, 4); le(zip, nameLength, 2); le(zip, 0, 2);
+        zip += name + data;
+        le(directory, 0x02014b50u, 4); le(directory, 20, 2); le(directory, 20, 2); le(directory, 0, 2); le(directory, 0, 2);
+        le(directory, 0, 4); le(directory, crc, 4); le(directory, size, 4); le(directory, size, 4);
+        le(directory, nameLength, 2); le(directory, 0, 2); le(directory, 0, 2); le(directory, 0, 2); le(directory, 0, 2);
+        le(directory, 0, 4); le(directory, offset, 4);
+        directory += name;
+    }
+    const auto start = static_cast<std::uint32_t>(zip.size());
+    zip += directory;
+    le(zip, 0x06054b50u, 4); le(zip, 0, 2); le(zip, 0, 2);
+    le(zip, static_cast<std::uint32_t>(files.size()), 2); le(zip, static_cast<std::uint32_t>(files.size()), 2);
+    le(zip, static_cast<std::uint32_t>(directory.size()), 4); le(zip, start, 4); le(zip, 0, 2);
+    return zip;
+}
+
+// Lines of dark "letters" (random 1-2 px strokes in 7 x 10 cells) on light paper, like printed
+// text at the working scale. No fonts: the core tests stay Qt-free.
+GreyImage TestResume::printedPage(int width, int height)
+{
+    GreyImage page{width, height, std::vector<std::uint8_t>(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), 232)};
+    std::mt19937 random(7);
+    const auto ink = [&](int x, int y) { page.pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = 25; };
+    for (int line = height / 12; line + 12 < height * 11 / 12; line += 18)
+        for (int cell = width / 12; cell + 8 < width * 11 / 12; cell += 9) {
+            if (random() % 7 == 0)
+                continue; // a space between words
+            for (int stroke = 0; stroke < 3; ++stroke) {
+                const bool vertical = random() % 2 == 0;
+                const int at = static_cast<int>(random() % (vertical ? 6 : 9));
+                for (int t = 0; t < (vertical ? 10 : 6); ++t)
+                    for (int w = 0; w < 2; ++w)
+                        vertical ? ink(cell + at + w, line + t) : ink(cell + t, line + at + w);
+            }
+        }
+    return page;
+}
+
+// A 3 x 3 box blur repeated `passes` times (close to a Gaussian of sigma 0.8 x sqrt(passes)).
+GreyImage TestResume::blurred(const GreyImage& image, int passes)
+{
+    GreyImage out = image;
+    for (int pass = 0; pass < passes; ++pass) {
+        const GreyImage in = out;
+        for (int y = 1; y + 1 < in.height; ++y)
+            for (int x = 1; x + 1 < in.width; ++x) {
+                int sum = 0;
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx)
+                        sum += in.pixels[static_cast<std::size_t>(y + dy) * static_cast<std::size_t>(in.width) + static_cast<std::size_t>(x + dx)];
+                out.pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(in.width) + static_cast<std::size_t>(x)] = static_cast<std::uint8_t>(sum / 9);
+            }
+    }
+    return out;
+}
+
 // --- documents --------------------------------------------------------------------------------
 
 void TestResume::inflateRoundTrips()
@@ -124,8 +218,26 @@ void TestResume::detectsDocumentTypes()
 {
     QVERIFY(detectDocumentType(fixture("priya-nair.pdf"), "cv.pdf") == DocumentType::Pdf);
     QVERIFY(detectDocumentType(fixture("rahul-verma.docx"), "anything") == DocumentType::Docx);
+    QVERIFY(detectDocumentType(fixture("photo-sharp.jpg"), "IMG_2041.JPG") == DocumentType::Image);
+    QVERIFY(detectDocumentType(std::string("\x89PNG\r\n\x1A\n rest", 13), "") == DocumentType::Image);
+    QVERIFY(detectDocumentType(std::string("\0\0\0\x18" "ftypheic", 12), "") == DocumentType::Image);
+    QVERIFY(detectDocumentType("{\\rtf1\\ansi Hello}", "") == DocumentType::Rtf);
+    QVERIFY(detectDocumentType(fixture("priya-nair.html"), "cv.htm") == DocumentType::Html);
+    QVERIFY(detectDocumentType("  <!DOCTYPE html><p>x</p>", "cv") == DocumentType::Html);
+    QVERIFY(detectDocumentType("# Asha Rao\n\nSkills: Python", "cv.md") == DocumentType::Text);
+    QVERIFY(detectDocumentType("\xFF\xFEh\0i\0", "cv.txt") == DocumentType::Text); // UTF-16, NULs and all
+    QVERIFY(detectDocumentType(storedZip({{"mimetype", "application/vnd.oasis.opendocument.text"}, {"content.xml", "<x/>"}}), "cv")
+            == DocumentType::Odt);
     QVERIFY_THROWS_EXCEPTION(DocumentError, detectDocumentType("", "cv.pdf"));
     QVERIFY_THROWS_EXCEPTION(DocumentError, detectDocumentType("plain text pretending", "cv.pdf"));
+    QVERIFY_THROWS_EXCEPTION(DocumentError, detectDocumentType("plain text pretending", "photo.jpg"));
+    QVERIFY_THROWS_EXCEPTION(DocumentError, detectDocumentType(std::string("\x7F" "ELF\x02\x01\0\0\0\0", 10), "cv"));
+    try {
+        detectDocumentType(storedZip({{"ppt/presentation.xml", "<p/>"}}), "cv.pptx");
+        QFAIL("slides must be refused");
+    } catch (const DocumentError& error) {
+        QVERIFY(std::string(error.what()).find("PowerPoint") != std::string::npos);
+    }
     try {
         detectDocumentType(std::string("\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8), "old.doc");
         QFAIL("an old .doc must be refused");
@@ -178,9 +290,125 @@ void TestResume::encryptedAndImageOnlyPdfsAreReported()
     try {
         pdfText(pdf("0 0 1 rg 72 72 200 200 re f", true)); // a drawing, no text: like a scan
         QFAIL("a PDF without text must be reported");
-    } catch (const DocumentError& error) {
-        QVERIFY(std::string(error.what()).find("No text") != std::string::npos);
+    } catch (const NeedsReadingError& error) { // its text has to be read from the picture
+        QVERIFY(std::string(error.what()).find("scan") != std::string::npos);
     }
+}
+
+void TestResume::odtDocuments()
+{
+    const std::string content =
+        "<?xml version=\"1.0\"?><office:document-content><office:meta><dc:title>not this</dc:title></office:meta>"
+        "<office:body><office:text><text:h text:outline-level=\"1\">Asha Rao</text:h>"
+        "<text:p>Skills:<text:s/>Python,<text:s text:c=\"3\"/>SQL<text:tab/>R&amp;D</text:p>"
+        "<text:tracked-changes><text:changed-region><text:p>Deleted words</text:p></text:changed-region></text:tracked-changes>"
+        "<text:p>Line one<text:line-break/>Line two</text:p>"
+        "<office:annotation><text:p>A reviewer's comment</text:p></office:annotation>"
+        "<text:p>Caf&#233; volunteer, 2023</text:p></office:text></office:body></office:document-content>";
+    const std::string odt = storedZip({{"mimetype", "application/vnd.oasis.opendocument.text"}, {"content.xml", content}});
+    const std::string text = documentText(odt, "cv.odt");
+    QCOMPARE(text, std::string("Asha Rao\nSkills: Python, SQL R&D\nLine one\nLine two\nCaf\xC3\xA9 volunteer, 2023"));
+    QVERIFY_THROWS_EXCEPTION(DocumentError, odtText(storedZip({{"mimetype", "application/vnd.oasis.opendocument.text"}})));
+}
+
+void TestResume::rtfDocuments()
+{
+    const std::string rtf =
+        "{\\rtf1\\ansi\\ansicpg1252\\deff0{\\fonttbl{\\f0\\fswiss Arial;}}{\\colortbl;\\red0\\green0\\blue0;}"
+        "{\\*\\generator Riched20 10.0;}{\\info{\\author Someone Else}}\\viewkind4\\uc1\\pard\\f0\\fs22 "
+        "{\\b Asha Rao}\\par\r\nSkills:\\tab Python, SQL\\par "
+        "Caf\\'e9 \\u8212? Ren\\u233\\'e9e \\{braces\\}\\line "
+        "{\\field{\\*\\fldinst HYPERLINK \"https://example.com\"}{\\fldrslt asha.dev}}"
+        "{\\pict\\pngblip 89504e470d0a}\\par}";
+    const std::string text = documentText(rtf, "cv.rtf");
+    QCOMPARE(text, std::string("Asha Rao\nSkills: Python, SQL\nCaf\xC3\xA9 \xE2\x80\x94 Ren\xC3\xA9" "e {braces}\nasha.dev"));
+}
+
+void TestResume::htmlAndPlainText()
+{
+    const std::string html = documentText(fixture("priya-nair.html"), "priya.html");
+    QVERIFY(html.find("PRIYA NAIR\npriya.nair@example.com \xC2\xB7 +91") == 0); // &middot; style text, head/style dropped
+    QVERIFY(html.find("Languages: Python (4 years), JavaScript, TypeScript, C++, SQL\nFrameworks:") != std::string::npos);
+    QVERIFY(html.find("font-family") == std::string::npos);
+    const std::string scripted = htmlText("<html><head><title>T</title><script>var x = '<p>no</p>';</script></head>"
+                                          "<body><!-- hidden --><h1>Asha&nbsp;Rao</h1><ul><li>Python &amp; SQL</li>"
+                                          "<li>Data   analysis\n with R</li></ul><table><tr><td>2023</td><td>Intern</td></tr></table></body></html>");
+    QCOMPARE(scripted, std::string("Asha Rao\nPython & SQL\nData analysis with R\n2023 Intern"));
+
+    QCOMPARE(documentText("# Asha Rao\n\n## Skills\n- **Python** and `SQL`\n> Team lead, 2023", "cv.md"),
+             std::string("Asha Rao\n\nSkills\n- Python and SQL\nTeam lead, 2023"));
+    std::string utf16 = "\xFF\xFE";
+    for (char c : std::string("Asha Rao, Python developer"))
+        utf16 += std::string{c, '\0'};
+    QCOMPARE(documentText(utf16, "cv.txt"), std::string("Asha Rao, Python developer"));
+    QCOMPARE(plainText("Caf\xE9 owner, Python developer\r\n"), std::string("Caf\xC3\xA9 owner, Python developer")); // Windows-1252
+    QVERIFY_THROWS_EXCEPTION(DocumentError, documentText("just some notes", "notes.txt")); // too little to be a resume
+}
+
+void TestResume::picturesNeedReading()
+{
+    QVERIFY_THROWS_EXCEPTION(NeedsReadingError, documentText(fixture("photo-sharp.jpg"), "IMG_2041.jpg"));
+    QVERIFY_THROWS_EXCEPTION(NeedsReadingError, documentText(pdf("0 0 1 rg 72 72 200 200 re f", false), "scan.pdf"));
+    // Ordinary document errors are not "needs reading".
+    try {
+        documentText("just some notes", "notes.txt");
+    } catch (const NeedsReadingError&) {
+        QFAIL("a short text file is not a picture");
+    } catch (const DocumentError&) {
+    }
+}
+
+void TestResume::scanQualityChecks()
+{
+    const GreyImage page = printedPage(1000, 1400);
+    const ScanQuality sharp = measureScan(page);
+    QVERIFY2(sharp.sharpness > 1.0 && sharp.detail > 0.3 && sharp.contrast > 150, qPrintable(QString::number(sharp.sharpness)));
+    requireReadableScan(1000, 1400, sharp); // passes
+
+    const auto refusal = [](int width, int height, const ScanQuality& q) -> std::string {
+        try {
+            requireReadableScan(width, height, q);
+        } catch (const DocumentError& error) {
+            return error.what();
+        }
+        return {};
+    };
+    const ScanQuality soft = measureScan(blurred(page, 2)); // sigma ~1.1: still readable
+    QVERIFY2(refusal(1000, 1400, soft).empty(), qPrintable(QString::number(soft.sharpness)));
+    const ScanQuality blurry = measureScan(blurred(page, 6)); // sigma ~2
+    QVERIFY2(refusal(1000, 1400, blurry).find("too blurry") != std::string::npos, qPrintable(QString::number(blurry.sharpness)));
+    QVERIFY(refusal(400, 560, sharp).find("too small") != std::string::npos);
+
+    GreyImage dark = page;
+    for (std::uint8_t& p : dark.pixels)
+        p = static_cast<std::uint8_t>(p / 8);
+    QVERIFY(refusal(1000, 1400, measureScan(dark)).find("too dark") != std::string::npos);
+    GreyImage faint = page;
+    for (std::uint8_t& p : faint.pixels)
+        p = static_cast<std::uint8_t>(232 - (232 - p) / 9); // 25 on 232 becomes 209 on 232
+    QVERIFY2(refusal(1000, 1400, measureScan(faint)).find("too faint") != std::string::npos, refusal(1000, 1400, measureScan(faint)).c_str());
+    const GreyImage blank{1000, 1400, std::vector<std::uint8_t>(1000u * 1400u, 240)};
+    QVERIFY(refusal(1000, 1400, measureScan(blank)).find("No text can be seen") != std::string::npos);
+    QCOMPARE(measureScan(GreyImage{10, 10, {}}).sharpness, 0.0); // malformed: measured as nothing
+}
+
+void TestResume::readTextIsCheckedForBlur()
+{
+    ReadText clear{"Asha  Rao\r\nSkills: Python, SQL, React", std::vector<double>(7, 0.99), 1};
+    QCOMPARE(acceptReadText(clear), std::string("Asha Rao\nSkills: Python, SQL, React"));
+    ReadText smudged = clear;
+    smudged.wordConfidence = {0.99, 0.95, 0.4, 0.3, 0.97, 0.5, 0.92}; // 3 of 7 uncertain
+    try {
+        acceptReadText(smudged);
+        QFAIL("a picture with many uncertain words must be refused");
+    } catch (const DocumentError& error) {
+        QVERIFY(std::string(error.what()).find("too blurry or unclear") != std::string::npos);
+        QVERIFY(std::string(error.what()).find("43%") != std::string::npos);
+    }
+    ReadText oneDoubt = clear;
+    oneDoubt.wordConfidence[2] = 0.5; // 1 of 7: fine
+    QVERIFY(!acceptReadText(oneDoubt).empty());
+    QVERIFY_THROWS_EXCEPTION(DocumentError, acceptReadText(ReadText{"Hi", {0.99}, 1})); // a picture of almost nothing
 }
 
 // --- analysis ---------------------------------------------------------------------------------

@@ -36,7 +36,7 @@ teamforge_add_test(tst_controller tst_controller.cpp
     ${PROJECT_SOURCE_DIR}/src/app/SampleData.cpp
 )
 target_include_directories(tst_controller PRIVATE ${PROJECT_SOURCE_DIR}/src/app)
-target_link_libraries(tst_controller PRIVATE Qt6::Qml)
+target_link_libraries(tst_controller PRIVATE Qt6::Qml Qt6::Gui)
 
 # The real UI, loaded offscreen: workspaces, permissions in the UI, hover and tooltips.
 teamforge_add_test(tst_ui tst_ui.cpp)

@@ -7,13 +7,64 @@ results = []
 def check(name, cond, detail=""):
     results.append((name, bool(cond))); print(("PASS " if cond else "FAIL ") + name + ("" if cond else f"  -> {detail}"))
 
-def start():
-    env = dict(os.environ, PORT=str(PORT), TEAMFORGE_SQLITE=DB, ADMIN_EMAILS="admin@test.edu", HOST="127.0.0.1")
+# A stand-in for Azure AI Document Intelligence (prebuilt-read), so reading pictures is tested
+# without a real service or key. What it answers depends on a marker in the uploaded bytes.
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+AZURE_PORT = 8766; AZURE = f"http://127.0.0.1:{AZURE_PORT}"; AZURE_KEY = "stub-key-not-secret"
+azure_calls = []
+class FakeAzure(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def answer(self, status, body=b"", headers=None):
+        self.send_response(status)
+        for k, v in (headers or {}).items(): self.send_header(k, v)
+        self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    def do_POST(self):
+        data = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        azure_calls.append(("POST", self.path, self.headers.get("Content-Type"), self.headers.get("Ocp-Apim-Subscription-Key"), data))
+        if self.headers.get("Ocp-Apim-Subscription-Key") != AZURE_KEY:
+            return self.answer(401, b'{"error":{"code":"401","message":"Access denied"}}')
+        if b"UNREADABLE" in data:
+            return self.answer(400, b'{"error":{"code":"InvalidRequest","innererror":{"code":"InvalidContent"}}}')
+        if b"REDIRECT" in data:
+            return self.answer(307, headers={"Location": "http://127.0.0.2:9/steal"})
+        where = AZURE if b"ELSEWHERE" not in data else "http://127.0.0.2:9"
+        kind = "blurry" if b"BLURRY" in data else "clear"
+        self.answer(202, headers={"Operation-Location": f"{where}/documentintelligence/documentModels/prebuilt-read/analyzeResults/{kind}?api-version=2024-11-30"})
+    def do_GET(self):
+        azure_calls.append(("GET", self.path, None, self.headers.get("Ocp-Apim-Subscription-Key"), b""))
+        polls = sum(1 for c in azure_calls if c[0] == "GET" and c[1] == self.path)
+        if polls == 1:
+            return self.answer(200, b'{"status":"running"}', {"Retry-After": "0"})
+        confidence = 0.41 if "blurry" in self.path else 0.98
+        words = [{"content": w, "confidence": confidence} for w in "Asha Rao Python SQL React developer".split()]
+        result = {"status": "succeeded", "analyzeResult": {"content": "Asha Rao\nSkills: Python, SQL, React developer",
+                                                          "pages": [{"pageNumber": 1, "words": words}]}}
+        self.answer(200, json.dumps(result).encode())
+    def do_DELETE(self):
+        azure_calls.append(("DELETE", self.path, None, self.headers.get("Ocp-Apim-Subscription-Key"), b""))
+        self.answer(204)
+azure = ThreadingHTTPServer(("127.0.0.1", AZURE_PORT), FakeAzure)
+threading.Thread(target=azure.serve_forever, daemon=True).start()
+
+def start(read_pictures=True):
+    env = dict(os.environ, PORT=str(PORT), TEAMFORGE_SQLITE=DB, ADMIN_EMAILS="admin@test.edu", HOST="127.0.0.1",
+               TEAMFORGE_READS_PER_HOUR="4")
+    env.pop("AZURE_DOCINTEL_ENDPOINT", None); env.pop("AZURE_DOCINTEL_KEY", None)
+    if read_pictures:
+        env.update(AZURE_DOCINTEL_ENDPOINT=AZURE + "/", AZURE_DOCINTEL_KEY=AZURE_KEY)
     p = subprocess.Popen([sys.executable, f"{WEB}/server.py"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # Read the server's log as it is written: a full pipe would block the server mid-request.
+    p.log = []
+    threading.Thread(target=lambda: p.log.extend(p.stdout), daemon=True).start()
     for _ in range(50):
         try: urllib.request.urlopen(BASE + "/healthz", timeout=1); return p
         except Exception: time.sleep(0.1)
-    raise SystemExit(p.stdout.read().decode())
+    raise SystemExit(b"".join(p.log).decode())
+
+def stop(p):
+    p.terminate(); p.wait(); time.sleep(0.2)
+    return b"".join(p.log).decode(errors="replace")
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *a, **k): return None
@@ -24,8 +75,10 @@ class Client:
         self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar), NoRedirect)
     def req(self, method, path, body=None, headers=None, raw=False):
         h = {"X-TeamForge": "1", "Content-Type": "application/json"} if body is not None else {}
+        if isinstance(body, bytes):
+            h["Content-Type"] = "application/octet-stream"
         h.update(headers or {})
-        data = json.dumps(body).encode() if body is not None else None
+        data = body if isinstance(body, bytes) else json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(BASE + path, data=data, method=method, headers=h)
         try: resp = self.op.open(r, timeout=30)
         except urllib.error.HTTPError as e: resp = e
@@ -165,19 +218,61 @@ try:
         check(f"traversal blocked {bad}", s == 404, s)
     s, h, _ = anon.req("GET", "/static/fonts/Manrope-Bold.ttf", raw=True)
     check("font served with font/ttf", s == 200 and h["Content-Type"].startswith("font/ttf"), h.get("Content-Type"))
-finally:
-    srv.terminate(); srv.wait()
 
-# persistence across a restart (same database)
-srv = start()
+    # reading photos and scans (the fake Azure above)
+    photo = b"\xff\xd8\xff\xe0 a photo of a resume"
+    check("bootstrap says pictures can be read", aboot.get("readsPictures") is True and aboot.get("readMaxBytes") == 4 * 1024 * 1024, aboot.get("readsPictures"))
+    s, _, b = anon.req("POST", "/api/read-document", photo)
+    check("reading needs sign-in", s == 401, (s, b))
+    s, _, b = p.req("POST", "/api/read-document", photo, headers={"X-TeamForge": "0"})
+    check("reading needs the TeamForge header", s == 403, (s, b))
+    s, _, b = p.req("POST", "/api/read-document", photo, headers={"Origin": "https://evil.example"})
+    check("cross-origin reading refused", s == 403, (s, b))
+    del azure_calls[:]
+    s, _, b = p.req("POST", "/api/read-document", photo)
+    check("a photo is read: text, word confidences, pages", s == 200 and b["text"].startswith("Asha Rao") and b["pages"] == 1
+          and len(b["confidences"]) == 6 and min(b["confidences"]) == 0.98, (s, b))
+    post = [c for c in azure_calls if c[0] == "POST"]
+    check("sent to prebuilt-read v4.0 with the key, as image/jpeg", len(post) == 1 and post[0][1] ==
+          "/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-11-30" and post[0][2] == "image/jpeg"
+          and post[0][3] == AZURE_KEY and post[0][4] == photo, post)
+    check("polled until done, then the result deleted from Azure", [c[0] for c in azure_calls] == ["POST", "GET", "GET", "DELETE"]
+          and azure_calls[-1][1] == azure_calls[1][1], [c[:2] for c in azure_calls])
+    s, _, b = p.req("POST", "/api/read-document", b"%PDF-1.4 BLURRY scan")
+    check("a scanned PDF goes as application/pdf; low confidences come back as they are",
+          s == 200 and set(b["confidences"]) == {0.41} and [c for c in azure_calls if c[0] == "POST"][-1][2] == "application/pdf", (s, b))
+    s, _, b = p.req("POST", "/api/read-document", b"PK\x03\x04 a docx is read in the app")
+    check("documents that are not pictures are refused (415)", s == 415, (s, b))
+    s, _, b = p.req("POST", "/api/read-document", photo + b" UNREADABLE")
+    check("Azure's refusal becomes a clear 422", s == 422 and "could not read" in b["error"], (s, b))
+    before = len(azure_calls)
+    s, _, b = p.req("POST", "/api/read-document", photo + b" ELSEWHERE")
+    check("a result URL on another host is not followed (the key stays with Azure)", s == 502
+          and all(c[3] == AZURE_KEY for c in azure_calls) and not any(c[0] == "GET" for c in azure_calls[before:]), (s, b))
+    s, _, b = a.req("POST", "/api/read-document", photo + b" REDIRECT")
+    check("a redirect from Azure is not followed", s == 502, (s, b))
+    s, _, b = p.req("POST", "/api/read-document", photo)
+    check("reading is limited per account per hour", s == 429 and "an hour" in b["error"], (s, b))
+    s, _, b = a.req("POST", "/api/read-document", b"\xff\xd8\xff" + b"x" * (4 * 1024 * 1024))
+    check("pictures over 4 MB refused before reading", s == 413, (s, b))
+finally:
+    log_text = stop(srv)
+check("the server log has no key, picture or text", AZURE_KEY not in log_text and "Asha" not in log_text
+      and "a photo of a resume" not in log_text and "read a image/jpeg" in log_text, log_text[-600:])
+
+# persistence across a restart (same database); this time without Azure settings
+srv = start(read_pictures=False)
 try:
     p = Client()
     s, _, b = p.req("POST", "/api/login", {"email": "p@test.edu", "password": "longenough"})
     check("account survives a server restart", s == 200 and b["user"]["role"] == "host", b)
     s, _, boot = p.req("GET", "/api/bootstrap")
     check("data and session survive a server restart", "session.json" in boot["files"] and boot["versions"]["requirements.json"] >= 2, boot["versions"])
+    check("without Azure settings the app is told pictures can't be read", boot.get("readsPictures") is False, boot.get("readsPictures"))
+    s, _, b = p.req("POST", "/api/read-document", b"\xff\xd8\xff a photo")
+    check("without Azure settings reading answers 503", s == 503 and "not set up" in b["error"], (s, b))
 finally:
-    srv.terminate(); out = srv.communicate()[0].decode()
+    stop(srv)
 os.remove(DB) if os.path.exists(DB) else None
 print(f"\n{sum(ok for _, ok in results)}/{len(results)} passed")
 sys.exit(0 if all(ok for _, ok in results) else 1)

@@ -116,9 +116,12 @@ class TeamForgeController : public QObject
     Q_PROPERTY(bool reduceMotion READ reduceMotion CONSTANT)
     Q_PROPERTY(bool lightVisuals READ lightVisuals CONSTANT)
 
-    // Resume import (TeamForgeResume.cpp): {state: "idle" | "working" | "ready" | "error",
-    // progress 0..1, stage (what is happening, in words), fileName, sizeBytes, error, result,
-    // canKeepCopy, hasCopy}. `result` is the analysis for review: name, age, totalYears, skills
+    // Resume import (TeamForgeResume.cpp): {state: "idle" | "working" | "confirm" | "ready" |
+    // "error", progress 0..1, stage (what is happening, in words), fileName, sizeBytes, error,
+    // result, canKeepCopy, hasCopy, readsPictures, picture}. "confirm": the file is a photo or a
+    // scanned PDF that passed the sharpness checks; its text is read (by Azure, through the
+    // server) only after confirmResumeReading. `picture` is {kind: "photo" | "scan", width,
+    // height, sizeText}. `result` is the analysis for review: name, age, totalYears, skills
     // [{skill, category, evidence, years, yearsEvidence, suggestedLevel}], unmatchedSkills,
     // projects, education, certifications, achievements, each with its evidence line.
     Q_PROPERTY(QVariantMap resume READ resume NOTIFY resumeChanged)
@@ -254,10 +257,21 @@ public:
     Q_INVOKABLE QVariantList motivationLibrary() const;
 
     // --- resume import (participant: their own profile only) ----------------------------------
-    // Reads and analyses a PDF or DOCX in the background; `resume` reports progress and the
-    // result. Nothing is saved: the person reviews the result and saves through saveMyProfile.
+    // Reads and analyses a resume in the background: PDF, DOCX, ODT, RTF, text, Markdown, HTML,
+    // or a photo or scan of one; `resume` reports progress and the result. Nothing is saved:
+    // the person reviews the result and saves through saveMyProfile.
     Q_INVOKABLE bool analyseResumeFile(const QUrl& file);
     bool analyseResumeData(const QString& fileName, const QByteArray& bytes);
+    // A photo or scan waiting in the "confirm" state: send it to be read.
+    Q_INVOKABLE bool confirmResumeReading();
+    // Reads the text of a photo (as JPEG) or a scanned PDF, at most `maxBytes`, and answers
+    // through documentRead with the same job number. The browser build passes it to the server
+    // (Azure AI Document Intelligence) when the server has it set up; tests set their own.
+    // Without one, photos and scans are checked and then refused with an explanation.
+    using DocumentReader = std::function<void(int job, const QByteArray& bytes, const QString& contentType)>;
+    void setDocumentReader(DocumentReader reader, qint64 maxBytes);
+    // The reader's answer: {text, confidences: [0..1 per word], pages} or {error}.
+    void documentRead(int job, const QVariantMap& answer);
     // The browser build's file picker (a desktop build uses the QML file dialog instead).
     Q_INVOKABLE void chooseResumeFile();
     Q_INVOKABLE void clearResume();
@@ -479,11 +493,17 @@ private:
     // Resume import. `resumeJob_` numbers the analyses so a stale result is ignored.
     void setResumeState(const QString& state, double progress, const QString& stage);
     void finishResume(int job, const QVariantMap& result, const QString& error);
+    void offerResumeReading(int job, const QByteArray& picture, const QVariantMap& info, const QString& reason);
+    void runResumeWork(std::function<void()> work);
+    std::vector<std::string> resumeVocabulary() const;
     QString resumeCopyPath() const;
     QVariantMap resume_;
     QByteArray resumeBytes_;     // the file under review, in memory only
     QString resumeFileName_;
+    QByteArray resumePicture_;   // in "confirm": the prepared JPEG or the scanned PDF, until read
     int resumeJob_ = 0;
+    DocumentReader documentReader_;
+    qint64 readMaxBytes_ = 0;
     bool reduceMotion_ = systemReducesMotion();
     bool lightVisuals_ = systemPrefersLightVisuals();
 

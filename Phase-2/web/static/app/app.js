@@ -162,6 +162,28 @@
     } catch (e) { /* try again later */ }
   }
 
+  // ---------------------------------------------------------------- reading photos and scans
+  // Called by the app (TeamForgeResume.cpp) with a photo or scanned PDF of a resume the person
+  // agreed to have read. The server passes it to Azure and keeps nothing. Resolves to
+  // {text, confidences, pages} or {error}.
+  window.TF_readDocument = async function (bytes, type) {
+    try {
+      const res = await fetch("/api/read-document", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": type || "application/octet-stream", "X-TeamForge": "1" },
+        body: bytes,
+      });
+      let data = {};
+      try { data = await res.json(); } catch (e) { /* empty */ }
+      if (res.ok) return data;
+      if (res.status === 401) return { error: "You have been signed out. Reload the page to sign in again." };
+      return { error: data.error || "The picture could not be read (error " + res.status + ")." };
+    } catch (e) {
+      return { error: "The server could not be reached. Check your connection and try again." };
+    }
+  };
+
   // ---------------------------------------------------------------- account bar
   function showAccount(user) {
     const who = $("who");
@@ -220,7 +242,8 @@
     showAccount(boot.user);
     state.versions = Object.assign({}, boot.versions);
     for (const [name, text] of Object.entries(boot.files || {})) state.canon[name] = canonical(name, text);
-    window.TF_BOOT = { allowedWorkspaces: boot.allowedWorkspaces, files: boot.files || {} };
+    window.TF_BOOT = { allowedWorkspaces: boot.allowedWorkspaces, files: boot.files || {},
+                       readsPictures: !!boot.readsPictures, readMaxBytes: boot.readMaxBytes || 0 };
 
     const entry = findEntry();
     if (typeof window.qtLoad !== "function" || !entry) {
