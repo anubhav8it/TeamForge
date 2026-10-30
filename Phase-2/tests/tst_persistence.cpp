@@ -8,6 +8,9 @@
 
 #include <QDebug>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 
 #include <algorithm>
@@ -155,16 +158,32 @@ void TestPersistence::oldAvailabilityFieldsAreDropped()
 void TestPersistence::interestsRoundTrip()
 {
     InterestBook book;
-    book.express("a", "req-t");
-    const std::string second = book.express("c", "req-t").id();
+    const std::string first = book.express("a", "req-t").id();
+    const std::string second = book.express("c", "req-t", "Happy to lead the backend.").id();
     book.setStatus(second, InterestStatus::Accepted);
+    book.setReply(second, "Welcome!");
     storage::saveInterests(path("interest_requests.json"), book.values());
+    // A request without messages is stored exactly as before (no empty "note" / "reply").
+    {
+        QFile file(QString::fromStdString(path("interest_requests.json")));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QJsonArray items = QJsonDocument::fromJson(file.readAll()).object().value("requests").toArray();
+        for (const QJsonValue& item : items) {
+            const QJsonObject o = item.toObject();
+            const bool messages = o.value("id").toString().toStdString() == second;
+            QCOMPARE(o.contains("note"), messages);
+            QCOMPARE(o.contains("reply"), messages);
+        }
+    }
 
     InterestBook loaded;
     for (const InterestRequest& request : storage::loadInterests(path("interest_requests.json")))
         loaded.add(request);
     QCOMPARE(loaded.size(), std::size_t{2});
     QCOMPARE(loaded.get(second).status(), InterestStatus::Accepted);
+    QCOMPARE(loaded.get(second).note(), std::string("Happy to lead the backend."));
+    QCOMPARE(loaded.get(second).reply(), std::string("Welcome!"));
+    QVERIFY(loaded.get(first).note().empty() && loaded.get(first).reply().empty());
     QVERIFY(loaded.find("a", "req-t") != nullptr);
 
     writeFile(path("bad-interest.json"), R"({"version": 1, "requests": [

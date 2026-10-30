@@ -203,6 +203,11 @@ TfPage {
                                         Layout.fillWidth: true
                                     }
                                     Chip {
+                                        visible: (interestRow.modelData.interestReply ?? "") !== ""
+                                        text: qsTr("Host replied")
+                                        tone: "info"
+                                    }
+                                    Chip {
                                         text: Theme.interestLabel(interestRow.modelData.interestStatus)
                                         tone: Theme.interestTone(interestRow.modelData.interestStatus)
                                     }

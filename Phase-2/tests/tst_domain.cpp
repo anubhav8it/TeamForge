@@ -18,6 +18,7 @@ private slots:
     void interestStatusesRoundTrip();
     void interestTransitions();
     void interestBookIndexesRequests();
+    void interestNotesAndReplies();
     void skillNamesAreNormalized();
     void studentValidation();
     void studentLookupAndEquality();
@@ -56,6 +57,38 @@ void TestDomain::interestTransitions()
     request.moveTo(S::UnderReview);
     QCOMPARE(request.status(), S::UnderReview);
     QVERIFY_THROWS_EXCEPTION(ValidationError, request.moveTo(S::Interested));
+}
+
+void TestDomain::interestNotesAndReplies()
+{
+    InterestBook book;
+    const std::string id = book.express("a", "req-1", "  I built two React apps;\r\n\n\n\nhappy to do the frontend.\t ").id();
+    // Trimmed, control characters dropped, blank-line runs collapsed.
+    QCOMPARE(book.get(id).note(), std::string("I built two React apps;\n\nhappy to do the frontend."));
+    QVERIFY(book.get(id).reply().empty());
+
+    // The participant may change the note while the request is new...
+    book.setNote(id, "Frontend or testing.");
+    QCOMPARE(book.get(id).note(), std::string("Frontend or testing."));
+    // ...but not once the host is reviewing it; the host may reply at any stage.
+    book.setStatus(id, InterestStatus::UnderReview);
+    QVERIFY_THROWS_EXCEPTION(ValidationError, book.setNote(id, "changed"));
+    QCOMPARE(book.get(id).note(), std::string("Frontend or testing."));
+    book.setReply(id, "Great, please bring your portfolio.");
+    book.setStatus(id, InterestStatus::Accepted);
+    book.setReply(id, "Welcome aboard!");
+    QCOMPARE(book.get(id).reply(), std::string("Welcome aboard!"));
+    book.setReply(id, "   ");
+    QVERIFY(book.get(id).reply().empty());
+
+    // 500 characters is the limit, counted as characters, not bytes.
+    QVERIFY_THROWS_EXCEPTION(ValidationError, book.express("b", "req-1", std::string(501, 'x')));
+    std::string accented;
+    for (int i = 0; i < 500; ++i)
+        accented += "\xC3\xA9"; // é: two bytes, one character
+    QCOMPARE(book.express("b", "req-1", accented).note().size(), std::size_t{1000});
+    QVERIFY_THROWS_EXCEPTION(ValidationError, InterestRequest("x", "c", "r", InterestStatus::Interested, "", std::string(600, 'y')));
+    QVERIFY_THROWS_EXCEPTION(NotFoundError, book.setReply("nope", "hi"));
 }
 
 void TestDomain::interestBookIndexesRequests()

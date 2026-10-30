@@ -13,8 +13,14 @@ Drawer {
     id: drawer
 
     signal whyThisMatch(string requirementId)
-    signal expressInterest(string requirementId)
+    // `note`: the optional message for the host ("" for none).
+    signal expressInterest(string requirementId, string note)
     readonly property string status: opportunity.interestStatus ?? ""
+    readonly property string sentNote: opportunity.interestNote ?? ""
+    readonly property string hostReply: opportunity.interestReply ?? ""
+    readonly property bool noteEditable: opportunity.noteEditable ?? false
+    property bool writingNote: false   // the note box is open in the footer (before sending)
+    property bool editingNote: false   // the sent note is being changed (until the host reviews it)
 
     property string requirementId
     readonly property var opportunity: Backend.opportunities.find(o => o.id === requirementId) ?? ({})
@@ -39,6 +45,9 @@ Drawer {
 
     function show(id) {
         requirementId = id
+        writingNote = false
+        editingNote = false
+        noteBox.clear()
         open()
     }
 
@@ -312,6 +321,94 @@ Drawer {
                     }
                 }
 
+                // Messages: the note sent with the interest and the host's reply.
+                ColumnLayout {
+                    visible: drawer.status !== ""
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 24
+                    Layout.rightMargin: 24
+                    spacing: 10
+                    TfText {
+                        text: qsTr("Messages")
+                        variant: "heading"
+                        font.pixelSize: Theme.fontLg
+                    }
+                    TfText { text: qsTr("Your note"); variant: "label" }
+                    TfText {
+                        visible: !drawer.editingNote
+                        text: drawer.sentNote !== "" ? drawer.sentNote : qsTr("No note sent.")
+                        variant: drawer.sentNote !== "" ? "body" : "muted"
+                        wrapMode: Text.WordWrap
+                        elide: Text.ElideNone
+                        Layout.fillWidth: true
+                    }
+                    TfTextArea {
+                        id: editBox
+                        visible: drawer.editingNote
+                        placeholderText: qsTr("A short note for the host")
+                        Layout.fillWidth: true
+                    }
+                    RowLayout {
+                        visible: drawer.noteEditable
+                        spacing: 8
+                        TfButton {
+                            visible: !drawer.editingNote
+                            text: drawer.sentNote !== "" ? qsTr("Edit note") : qsTr("Add a note")
+                            compact: true
+                            onClicked: {
+                                editBox.text = drawer.sentNote
+                                drawer.editingNote = true
+                                editBox.focusField()
+                            }
+                        }
+                        TfButton {
+                            visible: drawer.editingNote
+                            text: qsTr("Save note")
+                            variant: "primary"
+                            compact: true
+                            enabled: !editBox.tooLong
+                            onClicked: if (Backend.updateInterestNote(drawer.requirementId, editBox.text)) drawer.editingNote = false
+                        }
+                        TfButton {
+                            visible: drawer.editingNote
+                            text: qsTr("Cancel")
+                            variant: "ghost"
+                            compact: true
+                            onClicked: drawer.editingNote = false
+                        }
+                    }
+                    TfText {
+                        visible: !drawer.noteEditable
+                        text: qsTr("The host is reviewing your interest, so the note stays as they read it.")
+                        variant: "muted"
+                        font.pixelSize: Theme.fontXs
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                    Rectangle {
+                        visible: drawer.hostReply !== ""
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        implicitHeight: replyColumn.implicitHeight + 24
+                        radius: Theme.radiusSmall
+                        color: Theme.infoSubtle
+                        border.color: Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, 0.4)
+                        ColumnLayout {
+                            id: replyColumn
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 4
+                            TfText { text: qsTr("Reply from the host"); variant: "label"; color: Theme.info }
+                            TfText {
+                                text: drawer.hostReply
+                                wrapMode: Text.WordWrap
+                                elide: Text.ElideNone
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+                }
+
                 // What happens next
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -382,12 +479,30 @@ Drawer {
                     moment: "join"
                     Layout.fillWidth: true
                 }
+                // An optional note for the host, opened on request so the footer stays small.
+                TfButton {
+                    visible: drawer.status === "" && !drawer.writingNote
+                    text: qsTr("+ Add a note for the host (optional)")
+                    variant: "ghost"
+                    compact: true
+                    onClicked: {
+                        drawer.writingNote = true
+                        noteBox.focusField()
+                    }
+                }
+                TfTextArea {
+                    id: noteBox
+                    visible: drawer.status === "" && drawer.writingNote
+                    placeholderText: qsTr("What you'd like to work on, or experience the skills list doesn't show")
+                    Layout.fillWidth: true
+                }
                 TfButton {
                     visible: drawer.status === ""
                     text: qsTr("Express interest")
                     variant: "primary"
+                    enabled: !noteBox.tooLong
                     Layout.fillWidth: true
-                    onClicked: drawer.expressInterest(drawer.requirementId)
+                    onClicked: drawer.expressInterest(drawer.requirementId, drawer.writingNote ? noteBox.text : "")
                 }
                 TfText {
                     visible: drawer.status !== ""

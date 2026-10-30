@@ -24,6 +24,8 @@ QVariantMap TeamForgeController::interestToMap(const InterestRequest& request) c
     map.insert(QStringLiteral("id"), qs(request.id()));
     map.insert(QStringLiteral("requirementId"), qs(requirement.id()));
     map.insert(QStringLiteral("status"), qs(interestStatusName(request.status())));
+    map.insert(QStringLiteral("note"), qs(request.note()));
+    map.insert(QStringLiteral("reply"), qs(request.reply()));
     map.insert(QStringLiteral("score"), result.score);
     map.insert(QStringLiteral("coveredSkills"), toQStringList(result.coveredSkills));
     return map;
@@ -66,6 +68,24 @@ bool TeamForgeController::moveInterest(const char *operation, const QString& req
         return false;
     notifyDataChanged();
     refresh();
+    emit interestsChanged();
+    return save();
+}
+
+bool TeamForgeController::replyToInterest(const QString& requestId, const QString& reply)
+{
+    const bool ok = run("replyToInterest", requestId, [&] {
+        require(Permission::BuildTeams);
+        interests_.setReply(ss(requestId), ss(reply)); // NotFound / Validation (too long)
+        setDirty(true);
+        logEvent(AppLog::Level::Info, QStringLiteral("interest"),
+                 QStringLiteral("%1 on %2").arg(reply.trimmed().isEmpty() ? QStringLiteral("Reply cleared")
+                                                                          : QStringLiteral("Host replied"),
+                                                requestId));
+    });
+    if (!ok)
+        return false;
+    notifyDataChanged();
     emit interestsChanged();
     return save();
 }

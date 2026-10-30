@@ -132,3 +132,25 @@ Tests: `tst_resume` (20 cases, with fixtures in `tests/data/resumes/`), plus new
 and `tst_ui` cases for the whole import → review → save flow.
 Not verified: the WebAssembly build (browser file picker via `EM_JS`/embind, and the static
 `QtQuick.Dialogs` import). Run the GitHub web workflow and test on the live site before relying on it.
+
+## Feature 3: a note with your interest
+
+When a participant expresses interest (in the opportunity drawer), they can add a short note for
+the host, for example the part they'd like to work on, or experience their skills list doesn't
+show. The host sees the note under the applicant on the Applicants page and can **Reply** (or
+**Edit reply**) at any stage; the participant sees the reply in the drawer's Messages section, and
+a "Host replied" chip on their home page.
+
+- Notes and replies are plain text, at most 500 characters, trimmed, control characters removed.
+- The participant can edit or add their note only while the request is still new. Once the host
+  starts reviewing it, it stays as the host read it.
+- Stored on the request in `interest_requests.json` (`note`, `reply`); requests without messages
+  are stored exactly as before, so the sample data is unchanged.
+- Permissions are checked in C++: only the participant writes their note, only a host replies.
+  The log records that a note or reply was sent, never what it says.
+- The web server needs no change, but it trusts the app's copy of `interest_requests.json` (as it
+  already does for interest statuses). Server-side checks are worth adding with the Azure move.
+
+Tests: `tst_domain` (rules and limits), `tst_persistence` (stored format), `tst_controller`
+(permissions, locking, reload), `tst_ui` (note sent from the drawer reaches the host's list).
+

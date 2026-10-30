@@ -7,7 +7,8 @@ import TeamForge
 
 // The interest requests for one project (Backend.projectInterests), by review stage, with
 // Accept and Decline. "Why this match?" also marks a new request as under review. Accepting
-// offers the person to team building in Matching; it does not add them to the team.
+// offers the person to team building in Matching; it does not add them to the team. Under each
+// applicant: the note they sent with their interest, and the host's reply (Reply / Edit reply).
 ColumnLayout {
     id: list
 
@@ -67,17 +68,29 @@ ColumnLayout {
         delegate: Rectangle {
             id: row
             required property var modelData
+            property bool replying: false
+            readonly property string note: modelData.note ?? ""
+            readonly property string reply: modelData.reply ?? ""
             width: ListView.view.width
-            height: 72
+            height: rowBody.implicitHeight + 12
             radius: Theme.radiusSmall
             color: rowHover.hovered ? Theme.surfaceRaised : "transparent"
             Behavior on color { ColorAnimation { duration: Theme.animFast } }
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
 
+        ColumnLayout {
+            id: rowBody
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: 6
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            spacing: 6
+
             RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
+                Layout.fillWidth: true
+                Layout.preferredHeight: 60
                 spacing: 14
                 Avatar {
                     name: row.modelData.name
@@ -127,6 +140,18 @@ ColumnLayout {
                     Layout.preferredWidth: 58
                 }
                 TfButton {
+                    visible: !row.replying
+                    text: row.reply !== "" ? qsTr("Edit reply") : qsTr("Reply")
+                    variant: "ghost"
+                    compact: true
+                    Accessible.name: qsTr("Reply to %1").arg(row.modelData.name)
+                    onClicked: {
+                        replyBox.text = row.reply
+                        row.replying = true
+                        replyBox.focusField()
+                    }
+                }
+                TfButton {
                     text: qsTr("Why this match?")
                     variant: "ghost"
                     compact: true
@@ -153,6 +178,64 @@ ColumnLayout {
                     onClicked: list.act(Backend.declineInterest(row.modelData.id), qsTr("%1 declined").arg(row.modelData.name))
                 }
             }
+
+            // The participant's note and the host's reply, indented under the name.
+            ColumnLayout {
+                visible: row.note !== "" || row.reply !== "" || row.replying
+                Layout.fillWidth: true
+                Layout.leftMargin: 56
+                Layout.bottomMargin: 6
+                spacing: 6
+                TfText {
+                    visible: row.note !== ""
+                    text: "“" + row.note + "”"
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 4
+                    Layout.fillWidth: true
+                }
+                TfText {
+                    visible: row.reply !== "" && !row.replying
+                    text: qsTr("You replied: %1").arg(row.reply)
+                    color: Theme.info
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 3
+                    Layout.fillWidth: true
+                }
+                TfTextArea {
+                    id: replyBox
+                    visible: row.replying
+                    placeholderText: qsTr("Reply to %1, e.g. what you'd like them to bring").arg(row.modelData.name)
+                    minimumHeight: 60
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    visible: row.replying
+                    spacing: 8
+                    TfButton {
+                        visible: row.replying
+                        text: qsTr("Send reply")
+                        variant: "primary"
+                        compact: true
+                        enabled: !replyBox.tooLong
+                        onClicked: {
+                            if (Backend.replyToInterest(row.modelData.id, replyBox.text)) {
+                                row.replying = false
+                                list.notify(replyBox.text.trim() !== "" ? qsTr("Reply sent to %1").arg(row.modelData.name)
+                                                                        : qsTr("Reply removed"))
+                            }
+                        }
+                    }
+                    TfButton {
+                        visible: row.replying
+                        text: qsTr("Cancel")
+                        variant: "ghost"
+                        compact: true
+                        onClicked: row.replying = false
+                    }
+                }
+            }
+        }
             HoverHandler { id: rowHover }
         }
 

@@ -67,6 +67,7 @@ qt_add_qml_module(teamforge_ui
         ui/components/TfButton.qml
         ui/components/TfCheck.qml
         ui/components/TfComboBox.qml
+        ui/components/TfTextArea.qml
         ui/components/TfPage.qml
         ui/components/TfSpinBox.qml
         ui/components/TfText.qml

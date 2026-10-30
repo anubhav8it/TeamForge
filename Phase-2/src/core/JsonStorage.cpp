@@ -343,7 +343,8 @@ std::vector<InterestRequest> loadInterests(const std::string& path)
 {
     return loadAll<InterestRequest>(path, "requests", "interest request", [](const QJsonObject& o) {
         return InterestRequest(stringField(o, "id"), stringField(o, "studentId"), stringField(o, "requirementId"),
-                               interestStatusFrom(stringField(o, "status")));
+                               interestStatusFrom(stringField(o, "status")), optionalStringField(o, "note"),
+                               optionalStringField(o, "reply"));
     });
 }
 
@@ -356,6 +357,11 @@ void saveInterests(const std::string& path, const std::vector<InterestRequest>& 
         o.insert(QLatin1String("studentId"), toQString(r.studentId()));
         o.insert(QLatin1String("requirementId"), toQString(r.requirementId()));
         o.insert(QLatin1String("status"), toQString(interestStatusName(r.status())));
+        // Only when written, so requests without messages keep their exact stored form.
+        if (!r.note().empty())
+            o.insert(QLatin1String("note"), toQString(r.note()));
+        if (!r.reply().empty())
+            o.insert(QLatin1String("reply"), toQString(r.reply()));
         items.append(o);
     }
     writeCollection(path, "requests", items);

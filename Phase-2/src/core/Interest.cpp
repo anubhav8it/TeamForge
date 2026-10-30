@@ -27,13 +27,55 @@ InterestStatus interestStatusFrom(std::string_view text)
     throw ValidationError("Unknown interest status '" + std::string(text) + "'");
 }
 
+std::string cleanInterestMessage(const std::string& text, const std::string& what)
+{
+    std::string out;
+    int newlines = 0;
+    for (const char c : text) {
+        const auto u = static_cast<unsigned char>(c);
+        if (c == '\r')
+            continue;
+        if (c == '\n') {
+            if (++newlines <= 2)
+                out += c;
+            continue;
+        }
+        if (u < 0x20 || u == 0x7F)
+            continue; // tabs and other control characters
+        newlines = 0;
+        out += c;
+    }
+    out = trimmed(out);
+    std::size_t characters = 0;
+    for (const char c : out)
+        characters += (static_cast<unsigned char>(c) & 0xC0) != 0x80 ? 1 : 0;
+    if (characters > kMaxInterestMessage)
+        throw ValidationError(what + " can be at most " + std::to_string(kMaxInterestMessage) + " characters");
+    return out;
+}
+
 InterestRequest::InterestRequest(const std::string& id, const std::string& studentId,
-                                 const std::string& requirementId, InterestStatus status)
+                                 const std::string& requirementId, InterestStatus status, const std::string& note,
+                                 const std::string& reply)
     : id_(requireNonEmpty(id, "Interest request id"))
     , studentId_(requireNonEmpty(studentId, "Interest request participant"))
     , requirementId_(requireNonEmpty(requirementId, "Interest request project"))
     , status_(status)
+    , note_(cleanInterestMessage(note, "A note"))
+    , reply_(cleanInterestMessage(reply, "A reply"))
 {
+}
+
+void InterestRequest::setNote(const std::string& note)
+{
+    if (status_ != InterestStatus::Interested)
+        throw ValidationError("Interest request '" + id_ + "': the note can no longer change once the host is reviewing it");
+    note_ = cleanInterestMessage(note, "A note");
+}
+
+void InterestRequest::setReply(const std::string& reply)
+{
+    reply_ = cleanInterestMessage(reply, "A reply");
 }
 
 bool InterestRequest::canMove(InterestStatus from, InterestStatus to)
@@ -55,11 +97,28 @@ void InterestRequest::moveTo(InterestStatus next)
     status_ = next;
 }
 
-const InterestRequest& InterestBook::express(const std::string& studentId, const std::string& requirementId)
+const InterestRequest& InterestBook::express(const std::string& studentId, const std::string& requirementId,
+                                             const std::string& note)
 {
-    InterestRequest request(nextId(), studentId, requirementId);
+    InterestRequest request(nextId(), studentId, requirementId, InterestStatus::Interested, note);
     add(request);
     return requests_.get(request.id());
+}
+
+const InterestRequest& InterestBook::setNote(const std::string& requestId, const std::string& note)
+{
+    InterestRequest request = requests_.get(requestId);
+    request.setNote(note);
+    requests_.update(request);
+    return requests_.get(requestId);
+}
+
+const InterestRequest& InterestBook::setReply(const std::string& requestId, const std::string& reply)
+{
+    InterestRequest request = requests_.get(requestId);
+    request.setReply(reply);
+    requests_.update(request);
+    return requests_.get(requestId);
 }
 
 const InterestRequest& InterestBook::setStatus(const std::string& requestId, InterestStatus status)
