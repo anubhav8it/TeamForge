@@ -2,7 +2,7 @@
 
 Phase 3 development files and submission materials will be added here.
 
-## Feature 1: 3D motivational quotes
+## Feature 1:  quotes
 
 Context-aware, ten-word motivational quotes drawn with depth inside the existing forms. The code
 lives in the Phase-2 application tree (it is the same app); this folder documents it.
