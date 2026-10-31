@@ -1,0 +1,101 @@
+# Packs the TeamForge web server (with the newly built WebAssembly app) into a container image,
+# stores it in GitHub's container registry (ghcr.io, free), and, when Azure access is set up,
+# rolls it out to the Azure Container App. Setup: Phase-2/web/AZURE-DEPLOY.md.
+#
+# Runs after "Build web app" succeeds on main (that workflow commits the built app files), or
+# from the "Run workflow" button. Without the Azure secret it still builds the image and prints
+# the one Cloud Shell command that deploys it.
+name: Deploy to Azure
+
+on:
+  workflow_run:
+    workflows: ["Build web app"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write         # push the image to ghcr.io
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Repository variables (Settings -> Secrets and variables -> Actions -> Variables).
+      CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      HAS_AZURE: ${{ secrets.AZURE_CREDENTIALS != '' && vars.AZURE_CONTAINER_APP != '' && vars.AZURE_RESOURCE_GROUP != '' }}
+    steps:
+      # main, not the commit that started "Build web app": the build commits the app files after it.
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Image name and tag
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"          # registry names must be lower case
+          echo "IMAGE=ghcr.io/$owner/teamforge-web" >> "$GITHUB_ENV"
+          echo "TAG=sha-$(git rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: Phase-2
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.TAG }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=TeamForge web server and WebAssembly app
+
+      - name: Sign in to Azure
+        if: env.HAS_AZURE == 'true'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # A new tag makes a new revision, so the app starts the new image.
+      - name: Roll out to the Container App
+        if: env.HAS_AZURE == 'true'
+        run: |
+          az containerapp update --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:$TAG" --output none
+          url=$(az containerapp show --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn --output tsv)
+          for attempt in $(seq 1 30); do
+            if curl -fsS "https://$url/healthz" >/dev/null; then
+              echo "Deployed $IMAGE:$TAG to https://$url" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The new revision did not answer /healthz within 5 minutes." >&2
+          exit 1
+
+      - name: How to deploy this image by hand
+        if: env.HAS_AZURE != 'true'
+        run: |
+          {
+            echo "### Image ready: \`$IMAGE:$TAG\`"
+            echo "Azure access is not set up for this workflow, so it was not rolled out."
+            echo "Deploy it from Azure Cloud Shell (portal, top bar, the >_ icon):"
+            echo '```'
+            echo "az containerapp update --name <your app> --resource-group <your group> --image $IMAGE:$TAG"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

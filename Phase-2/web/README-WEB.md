@@ -113,6 +113,10 @@ and the Admin page. Local data is kept in `web/teamforge-local.db` (delete it to
 
 ## 3. Put it on Render
 
+> **Moving to Azure?** `web/AZURE-DEPLOY.md` sets it up on Azure Container Apps with Azure
+> PostgreSQL and your own domain (free on Azure for Students for 12 months), and copies
+> accounts and data over from Render with `tools/copy_database.py`.
+
 Commit everything **including `web/static/app/TeamForge.wasm`, `TeamForge.js` and `qtloader.js`**
 and push to GitHub. (GitHub refuses single files over 100 MB; a Release build of TeamForge should
 be far smaller. If it is not, build with `-DCMAKE_BUILD_TYPE=MinSizeRel`.)
@@ -207,5 +211,10 @@ web/
   static/app/TeamForge.{js,wasm}, qtloader.js   ← copied from build-wasm/
   static/css, js, fonts, img
   tools/copy-wasm.ps1 / copy-wasm.sh
+  tools/precompress.py   gzip copies of the app files (run at build time)
+  tools/copy_database.py copies accounts and data between databases (Render -> Azure)
+  AZURE-DEPLOY.md        Azure Container Apps + PostgreSQL + own domain, step by step
 render.yaml              Render Blueprint (web service + Postgres, both free)
+Dockerfile, .dockerignore  the server image (Azure Container Apps; any Docker host)
+../.github/workflows/deploy-azure.yml  builds the image to ghcr.io and rolls it out to Azure
 ```
