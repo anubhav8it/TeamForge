@@ -1,0 +1,8 @@
+# The image needs only the web server and the sample data (see Dockerfile).
+*
+!web
+!data
+web/tests
+web/teamforge-local.db*
+**/__pycache__
+**/*.pyc

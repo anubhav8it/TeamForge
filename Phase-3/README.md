@@ -133,6 +133,40 @@ and `tst_ui` cases for the whole import → review → save flow.
 Not verified: the WebAssembly build (browser file picker via `EM_JS`/embind, and the static
 `QtQuick.Dialogs` import). Run the GitHub web workflow and test on the live site before relying on it.
 
+## Feature 5: hosting on Azure, with your own domain
+
+The web version moves from Render, whose free database expires after 30 days, to Azure. On Azure
+for Students it fits the free allowances: Container Apps (scales to zero) and PostgreSQL Flexible
+Server B1ms (free for 12 months). A custom domain gets a free managed HTTPS certificate. The app
+and server code are unchanged; the server already used PostgreSQL through `DATABASE_URL`.
+
+- `Phase-2/Dockerfile` and `.dockerignore`: an image of only `web/` and `data/`, on Python 3.12
+  slim, run as an unprivileged user. The app files are gzipped at build time, so cold starts are
+  quick.
+- `.github/workflows/deploy-azure.yml` runs after **Build web app** succeeds on main:
+  - builds the image and pushes it to ghcr.io (free);
+  - if an `AZURE_CREDENTIALS` secret is set, rolls it out with `az containerapp update` and
+    waits for `/healthz`;
+  - otherwise prints the one Cloud Shell command to deploy it.
+- `Phase-2/web/tools/copy_database.py` copies accounts (with their password hashes), sessions,
+  shared data and each account's session file from Render's PostgreSQL to Azure's:
+  - it reads the URLs from environment variables, so no passwords end up in shell history;
+  - it refuses a target that already has data unless given `--replace`;
+  - it checks the row counts and continues the account ids;
+  - it prints counts only.
+- `Phase-2/web/AZURE-DEPLOY.md`: every portal step, with the exact free sizes, the order that
+  avoids losing data, the domain's DNS records, a budget alert, and when to delete Render.
+
+Tests: `web/tests/test_copy_database.py` covers SQLite to SQLite:
+- passwords still work and sessions survive;
+- new ids follow the copied ones;
+- a non-empty target is refused, and `--replace` works;
+- no password is printed.
+
+The server was also run from a folder holding only the image's contents (health check, sign-in
+page, gzipped app). Docker itself was not run locally (no Docker here). Nothing in Azure is
+created by this repository; you create the resources yourself, following the guide.
+
 ## Feature 4: any kind of resume, including photos and scans
 
 The resume import now takes almost any file a student has, not only PDF and DOCX:
