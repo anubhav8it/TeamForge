@@ -111,6 +111,17 @@ try:
     check("app page needs sign-in", s == 303 and h["Location"] == "/login", s)
     s, _, b = anon.req("GET", "/api/bootstrap")
     check("bootstrap needs sign-in", s == 401, s)
+    s, _, b = anon.req("GET", "/readyz", raw=True)
+    check("readyz answers ready when the database works", s == 200 and b == b"ready", (s, b))
+    sys.path.insert(0, WEB)
+    import server as server_module
+    probe = server_module.Database("", Path(DB + ".probe"))
+    alive = probe.ping()
+    probe.conn.close()
+    check("database ping fails once the connection is gone", alive and not probe.ping())
+    for leftover in Path(DB + ".probe").parent.glob(Path(DB + ".probe").name + "*"):
+        try: leftover.unlink()
+        except OSError: pass
 
     p = Client()
     s, _, b = p.req("POST", "/api/register", {"email": "bad", "password": "longenough"})

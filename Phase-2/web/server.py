@@ -239,6 +239,14 @@ class Database:
     def execute(self, sql, params=()) -> int:
         return self._run(sql, params)
 
+    def ping(self) -> bool:
+        """True when the database answers a trivial query (used by /readyz)."""
+        try:
+            return self.one("SELECT 1") is not None
+        except Exception as error:
+            log.warning("database check failed: %s", type(error).__name__)
+            return False
+
     def _create_schema(self):
         user_id = "SERIAL PRIMARY KEY" if self.is_pg else "INTEGER PRIMARY KEY AUTOINCREMENT"
         real = "DOUBLE PRECISION" if self.is_pg else "REAL"
@@ -776,6 +784,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+            return
+        if path == "/readyz":
+            # /healthz says the process is up (liveness); /readyz also needs the database
+            # (readiness, and the deploy check), so a broken DATABASE_URL is noticed.
+            ready = self.store.db.ping()
+            body = b"ready" if ready else b"database unavailable"
+            self.send_response(200 if ready else 503)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(body)
