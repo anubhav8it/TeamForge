@@ -21,11 +21,11 @@ Each block is marked complete only after it has been tested. Newest findings fir
 
 | Component | Status (verified how) | Required action |
 |---|---|---|
-| Azure resources | **Unknown.** No Azure CLI or Azure login on this machine; the repository creates none. The last *Deploy to Azure* run (2026-10-31) skipped "Sign in to Azure" and "Roll out", so `AZURE_CREDENTIALS` is not set. | Owner: list the `teamforge` resource group, or install Azure CLI and sign in |
+| Azure resources | **Checked with Azure CLI (2026-11-07).** Subscription *Azure for Students*, enabled. Resource group `teamforge` (Central India) exists and is **empty**. On 2026-10-31 creating PostgreSQL `teamforge-db-mukul` failed 4 times: the subscription policy *Allowed resource deployment regions* permits only Korea Central, UAE North, Poland Central, East Asia and India South Central. Central India is blocked. | Create resources in an allowed region (the group's own region does not matter) |
 | Container image | **Done.** `ghcr.io/anubhav8it/teamforge-web:latest` and `:sha-663efdf592f1`, public (anonymous pull checked) | none |
-| Database (Azure) | Not created, as far as the repository shows | create B1ms server + `teamforge` database (guide step 2) |
+| Database (Azure) | Not created (blocked by the region policy). B1ms is offered in all five allowed regions | create B1ms server + `teamforge` database (guide step 2) |
 | Database (Render) | Works today (a sign-in with an unknown email returns 401, so the database answered). Render's free database lasts 30 days; it was added around 2026-10-10, so it **expires around 2026-11-09** | copy to Azure before then (guide step 3); check the exact date in Render's dashboard |
-| Hosting | Container Apps chosen (scales to zero, monthly free allowance). App Service is not used | create the Container App (guide step 6) |
+| Hosting | Container Apps chosen (scales to zero, monthly free allowance); App Service is not used. Container Apps runs in 4 of the 5 allowed regions (not India South Central). Providers `Microsoft.App` and `Microsoft.OperationalInsights` are not registered yet | create the Container App (guide step 6) |
 | Blob Storage | Not in the architecture. Resumes are never stored (by design); there are no profile pictures yet | decision: PostgreSQL vs Blob (below) |
 | Key Vault | Not used. Secrets live in the host's settings (Render env, Container Apps secrets); none are in the repository (history scanned) | decision (below) |
 | Document Intelligence | Code done and tested against a fake Azure service; a real call not verified; resource existence unknown | optional (guide step 4) |
@@ -53,7 +53,8 @@ Each block is marked complete only after it has been tested. Newest findings fir
 - [x] Audit repository, server, database, deploy files, git history
 - [x] Verify image on ghcr.io, last deploy run, Render health
 - [x] Add `/readyz` (database readiness) + tests; deploy workflow and guide use it
-- [ ] Owner: confirm which Azure resources exist
+- [x] Confirm which Azure resources exist (empty group; region policy found)
+- [ ] Owner approval: region and resource plan
 - [ ] Owner-approved: create PostgreSQL B1ms + database
 - [ ] Copy Render data to Azure (before ~2026-11-09)
 - [ ] Owner-approved: create Container App, set secrets, start
