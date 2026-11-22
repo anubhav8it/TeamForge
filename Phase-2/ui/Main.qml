@@ -106,6 +106,27 @@ ApplicationWindow {
         Hub.route = route
         go(index)
     }
+    // Someone came through a team invitation link (the server remembered it when they signed in):
+    // open it in the Community once, as soon as they have a workspace and (participants) a profile.
+    property bool linkClaimOpened: false
+    function maybeOpenLinkClaim() {
+        if (linkClaimOpened || !Hub.summary.linkClaim || workspace === "" || profileEditorShown)
+            return
+        if (pages.findIndex(p => p.key === "community") < 0)
+            return
+        linkClaimOpened = true
+        openCommunity("join")
+    }
+    Connections {
+        target: Hub
+        function onSummaryChanged() { window.maybeOpenLinkClaim() }
+    }
+    Connections {
+        target: Backend
+        function onProfileChanged() { Qt.callLater(window.maybeOpenLinkClaim) }
+        function onWorkspaceChanged() { Qt.callLater(window.maybeOpenLinkClaim) }
+    }
+
     // Why this match? for a host candidate (scored against the current team).
     function explain(studentId) {
         insights.showCandidate(studentId)

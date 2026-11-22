@@ -5,7 +5,9 @@
 #include <algorithm>
 
 #include <QBuffer>
+#include <QClipboard>
 #include <QDateTime>
+#include <QGuiApplication>
 #include <QImage>
 #include <QImageReader>
 #include <QJSEngine>
@@ -174,6 +176,30 @@ HubClient::HubClient(QObject *parent)
 }
 
 HubClient::~HubClient() = default;
+
+QString HubClient::absoluteUrl(const QString& path) const
+{
+#ifdef Q_OS_WASM
+    const emscripten::val location = emscripten::val::global("location");
+    const QString origin = location.isUndefined() ? QString() : QString::fromStdString(location["origin"].as<std::string>());
+    return origin + path;
+#else
+    return serverUrl_ + path;
+#endif
+}
+
+bool HubClient::copyText(const QString& text)
+{
+    if (QClipboard *clipboard = QGuiApplication::clipboard())
+        clipboard->setText(text);
+#ifdef Q_OS_WASM
+    // Qt's clipboard may need the page's permission; ask the browser directly as well.
+    const emscripten::val navigator = emscripten::val::global("navigator");
+    if (!navigator.isUndefined() && !navigator["clipboard"].isUndefined())
+        navigator["clipboard"].call<emscripten::val>("writeText", text.toStdString());
+#endif
+    return true;
+}
 
 bool HubClient::browser()
 {
@@ -534,13 +560,16 @@ QString HubClient::statusLabel(const QString& status) const
         {QStringLiteral("waitlisted"), tr("Waitlisted")}, {QStringLiteral("new"), tr("New")},
         {QStringLiteral("reviewed"), tr("Reviewed")}, {QStringLiteral("interested"), tr("Interested")},
         {QStringLiteral("declined"), tr("Declined")}, {QStringLiteral("leader"), tr("Leader")},
-        {QStringLiteral("admin"), tr("Admin")}, {QStringLiteral("member"), tr("Member")}};
+        {QStringLiteral("admin"), tr("Admin")}, {QStringLiteral("member"), tr("Member")},
+        {QStringLiteral("accepted"), tr("Accepted")}, {QStringLiteral("expired"), tr("Expired")},
+        {QStringLiteral("revoked"), tr("Withdrawn")}};
     return labels.value(status, status);
 }
 
 QString HubClient::statusTone(const QString& status) const
 {
-    if (status == QLatin1String("approved") || status == QLatin1String("interested") || status == QLatin1String("leader"))
+    if (status == QLatin1String("approved") || status == QLatin1String("interested") || status == QLatin1String("leader")
+        || status == QLatin1String("accepted"))
         return QStringLiteral("success");
     if (status == QLatin1String("pending") || status == QLatin1String("waitlisted") || status == QLatin1String("new"))
         return QStringLiteral("warning");

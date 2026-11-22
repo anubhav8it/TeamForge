@@ -117,6 +117,21 @@ def invitation(to: str, link: str, base_url: str, target: str, kind: str) -> Ema
                                            escape(notice)), _text(title, plain, link, notice), "invitation")
 
 
+def team_invitation(to: str, link: str, base_url: str, team: str, inviter: str, message: str) -> EmailMessage:
+    title = f"{inviter} invited you to join {team}"
+    paragraphs = [f"<strong>{escape(inviter)}</strong> would like you to join the team <strong>{escape(team)}</strong> "
+                  "on TeamForge."]
+    plain = [f"{inviter} would like you to join the team {team} on TeamForge."]
+    if message:
+        paragraphs.append(f"Their message: “{escape(message)}”")
+        plain.append(f"Their message: “{message}”")
+    paragraphs.append("Open TeamForge to see the team and accept or decline. The invitation is open for 14 days.")
+    plain.append(paragraphs[-1])
+    notice = "You can turn these emails off in TeamForge: Community → Profile → Email updates."
+    return EmailMessage(to, title, _layout(base_url, title, title, paragraphs, ("View the invitation", link),
+                                           escape(notice)), _text(title, plain, link, notice), "team_invitation")
+
+
 def team_notification(to: str, link: str, base_url: str, target: str, text: str) -> EmailMessage:
     title = f"Update from {target}"
     notice = "You can turn these emails off in TeamForge: Community → Profile → Email updates."

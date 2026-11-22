@@ -62,11 +62,15 @@ private slots:
     void everyScreenOpens();
     void chatSendsAndShowsMessages();
     void anonymousInboxHidesTheSender();
+    void recruitmentScreens();
     void samePhotoEverywhere();
     void noQmlWarnings();
 
 private:
     bool anyVisibleTextContaining(const QString& part) const;
+    bool clickButton(const QString& text);
+    QString visibleButtons() const;
+    void checkPhoneOverflow(const QString& where);
     void shot(const QString& name);
 
     std::unique_ptr<QTemporaryDir> dir_;
@@ -122,6 +126,47 @@ bool TestCommunity::anyVisibleTextContaining(const QString& part) const
     return found;
 }
 
+// Clicks the visible button with exactly this text (emits its clicked signal, as a tap would).
+bool TestCommunity::clickButton(const QString& text)
+{
+    QQuickItem *found = nullptr;
+    const std::function<void(QQuickItem *)> visit = [&](QQuickItem *item) {
+        if (found || !item->isVisible() || item->opacity() <= 0.0)
+            return;
+        if (item->inherits("QQuickAbstractButton") && item->property("text").toString() == text && item->isEnabled()) {
+            found = item;
+            return;
+        }
+        for (QQuickItem *child : item->childItems())
+            visit(child);
+    };
+    visit(window_->contentItem());
+    return found && QMetaObject::invokeMethod(found, "clicked");
+}
+
+QString TestCommunity::visibleButtons() const
+{
+    QStringList texts;
+    const std::function<void(QQuickItem *)> visit = [&](QQuickItem *item) {
+        if (!item->isVisible() || item->opacity() <= 0.0)
+            return;
+        if (item->inherits("QQuickAbstractButton"))
+            texts << item->property("text").toString() + (item->isEnabled() ? QString() : QStringLiteral(" (disabled)"));
+        for (QQuickItem *child : item->childItems())
+            visit(child);
+    };
+    visit(window_->contentItem());
+    return texts.join(QStringLiteral(" | "));
+}
+
+void TestCommunity::checkPhoneOverflow(const QString& where)
+{
+    if (window_->width() <= 430) {
+        const QStringList over = horizontalOverflow(window_);
+        QVERIFY2(over.isEmpty(), qPrintable(where + ": " + over.join(QStringLiteral("; "))));
+    }
+}
+
 void TestCommunity::shot(const QString& name)
 {
     const QString folder = qEnvironmentVariable("TEAMFORGE_SHOTS");
@@ -167,6 +212,8 @@ void TestCommunity::everyScreenOpens_data()
     QTest::newRow("notifications") << "notifications" << "New application to Rocket Lab";
     QTest::newRow("profile") << "profile" << "Community profile";
     QTest::newRow("people") << "people" << "Dev Admin";
+    QTest::newRow("invitations") << "invitations" << "Team invitations";
+    QTest::newRow("join") << "join" << "No team invitation open";
 }
 
 void TestCommunity::everyScreenOpens()
@@ -261,6 +308,54 @@ void TestCommunity::samePhotoEverywhere()
     hub_->setRoute(QStringLiteral("home"));
     QTest::qWait(800);
     shot(QStringLiteral("home-with-photo"));
+}
+
+// Recruitment as the team leader: the team page's Recruit strip, Find members (registered people
+// with compatibility scores), and Invite via link (a new link, shown once, with Copy).
+void TestCommunity::recruitmentScreens()
+{
+    hub_->setRoute(QStringLiteral("teams/%1").arg(teamId_));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Recruit")), 6000);
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("place")), 3000); // capacity
+    QTest::qWait(300);
+    checkPhoneOverflow(QStringLiteral("team with recruit strip"));
+    shot(QStringLiteral("recruit-team"));
+
+    QVERIFY(clickButton(QStringLiteral("Find members")));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Find members for Rocket Lab")), 4000);
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("scores compare")), 8000); // loaded
+    QTest::qWait(500);
+    checkPhoneOverflow(QStringLiteral("find members"));
+    shot(QStringLiteral("recruit-find-members"));
+    if (clickButton(QStringLiteral("View profile"))) { // the first candidate, if the demo server has any
+        QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Compatibility with this team")), 4000);
+        QTest::qWait(400);
+        shot(QStringLiteral("recruit-candidate"));
+        QVERIFY(clickButton(QStringLiteral("Cancel")));
+        QTest::qWait(300);
+    }
+    QVERIFY(clickButton(QStringLiteral("✕")));
+    QTRY_VERIFY_WITH_TIMEOUT(!anyVisibleTextContaining(QStringLiteral("Find members for Rocket Lab")), 3000);
+
+    QVERIFY(clickButton(QStringLiteral("Invite via link")));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Anyone with the link")), 4000);
+    // (wait first, then click once: QTRY re-evaluates its expression)
+    QTRY_VERIFY2_WITH_TIMEOUT(visibleButtons().contains(QStringLiteral("Create link |"))
+                                  || visibleButtons().contains(QStringLiteral("Make a new link |")), qPrintable(visibleButtons()), 4000);
+    QVERIFY(clickButton(QStringLiteral("Create link")) || clickButton(QStringLiteral("Make a new link")));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("/invite/")), 6000); // the link, shown once
+    QTest::qWait(400);
+    checkPhoneOverflow(QStringLiteral("invite via link"));
+    shot(QStringLiteral("recruit-invite-link"));
+    QVERIFY(clickButton(QStringLiteral("Done")));
+    QTest::qWait(300);
+
+    hub_->setRoute(QStringLiteral("teams/%1/applications").arg(teamId_));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Oscar Negi")), 6000);
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Profile & fit")), 3000); // compatibility on the card
+    QTest::qWait(300);
+    checkPhoneOverflow(QStringLiteral("applications with compatibility"));
+    shot(QStringLiteral("recruit-applications"));
 }
 
 void TestCommunity::noQmlWarnings()

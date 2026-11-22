@@ -14,6 +14,7 @@ HubDialog {
     property string targetId
     property string targetName
     property var positions: []
+    property string customPath: ""      // e.g. the invitation-link application
     signal applied(string status)
 
     title: kind === "team" ? qsTr("Apply to join %1").arg(targetName) : qsTr("Apply for %1").arg(targetName)
@@ -49,7 +50,8 @@ HubDialog {
             return
         }
         busy = true
-        const path = kind === "team" ? "/teams/" + targetId + "/applications" : "/events/" + encodeURIComponent(targetId) + "/applications"
+        const path = customPath !== "" ? customPath
+                   : kind === "team" ? "/teams/" + targetId + "/applications" : "/events/" + encodeURIComponent(targetId) + "/applications"
         const body = kind === "team"
             ? { introduction: intro.text, skills: skills.text, experience: experience.text, interests: interests.text, reason: reason.text }
             : { position: positions.length > 0 ? positions[position.currentIndex] : "", motivation: motivation.text,

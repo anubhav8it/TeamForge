@@ -5,9 +5,11 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import TeamForge
 
-// One team: what it is about, its members, and (for the leader and team admins) its applications
-// and member management. Visitors can apply or message the leaders anonymously; members open the
-// chat. Every action is checked again by the server.
+// One team: what it is about, its members and skill coverage, and (for the leader and team
+// admins) recruitment: Find members, Invite via link, and one list of applications and
+// invitations with each person's compatibility. Visitors can apply or message the leaders
+// anonymously; invited people accept or decline here; members open the chat. Every action is
+// checked again by the server.
 Item {
     id: detail
 
@@ -26,10 +28,15 @@ Item {
     readonly property string currentTab: tab === "applications" && team && team.canManage ? "applications"
                                        : tab === "members" ? "members" : "overview"
 
-    // applications (managers)
-    property var apps: ({ items: [], page: 1, pages: 1, total: 0 })
+    // applications and invitations (managers)
+    property var apps: ({ items: [], page: 1, pages: 1, total: 0, counts: {} })
     property string appStatus: "pending"
     property bool appsLoading: false
+    readonly property int vacancies: team ? Math.max(0, team.maxMembers - team.memberCount) : 0
+
+    function reportFor(person, extra) {
+        return Backend.teamCompatibility(team, Object.assign({}, person ?? {}, extra ?? {}))
+    }
 
     function load() {
         loading = true
@@ -49,7 +56,7 @@ Item {
     }
     function loadApps(page) {
         appsLoading = true
-        Hub.get("/teams/" + teamId + "/applications?page=" + page + (appStatus !== "" ? "&status=" + appStatus : ""), (status, data) => {
+        Hub.get("/teams/" + teamId + "/recruitment?page=" + page + "&filter=" + (appStatus !== "" ? appStatus : "all"), (status, data) => {
             appsLoading = false
             if (status === 200)
                 apps = data
@@ -80,6 +87,34 @@ Item {
         onSent: threadId => { detail.notify(qsTr("Sent anonymously. Replies appear under Anonymous › Sent.")); detail.navigate("anonymous/" + threadId) }
     }
     DecisionDialog { id: decisionDialog; onDecided: status => { detail.notify(qsTr("Application %1").arg(Hub.statusLabel(status).toLowerCase())); detail.load(); detail.loadApps(detail.apps.page) } }
+    FindMembersDialog {
+        id: finder
+        onInvited: name => { detail.notify(qsTr("Invitation sent to %1").arg(name)); detail.load() }
+        onReviewApplications: detail.navigate("teams/" + detail.teamId + "/applications")
+    }
+    InviteLinkDialog { id: linkDialog; onNotify: m => detail.notify(m) }
+    CandidateDialog { id: reviewDialog }
+    HubDialog {
+        id: declineDialog
+        title: qsTr("Decline the invitation to %1?").arg(detail.team ? detail.team.name : "")
+        subtitle: qsTr("The team is told. You can add a short reply.")
+        primaryText: qsTr("Decline")
+        primaryVariant: "danger"
+        onAccepted: { close(); detail.respondInvitation("decline", declineReply.text) }
+        TfTextArea { id: declineReply; maxLength: 600; placeholderText: qsTr("Optional"); Layout.fillWidth: true }
+    }
+    function respondInvitation(decision, response) {
+        Hub.post("/team-invitations/" + team.myInvitation.id + "/respond", { decision: decision, response: response ?? "" }, (status, data) => {
+            if (status === 200) {
+                Hub.refresh()
+                if (decision === "accept") { detail.notify(qsTr("Welcome to %1!").arg(detail.team.name)); detail.navigate("messages/" + detail.teamId) }
+                else { detail.notify(qsTr("Invitation declined")); detail.load() }
+            } else {
+                detail.notify(data.error ?? qsTr("That did not work."))
+                detail.load()
+            }
+        })
+    }
     PersonDialog { id: personDialog; onMessageAnonymously: p => anonDialog.openFor("person", p.id, p.name) }
     ConfirmDialog {
         id: confirm
@@ -177,12 +212,147 @@ Item {
                             large: true
                         }
                     }
+                    // capacity
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        MeterBar {
+                            value: detail.team ? detail.team.memberCount / Math.max(1, detail.team.maxMembers) : 0
+                            fillColor: detail.team && detail.team.full ? Theme.warning : Theme.accent
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 320
+                            Accessible.role: Accessible.ProgressBar
+                            Accessible.name: qsTr("%1 of %2 members").arg(detail.team ? detail.team.memberCount : 0).arg(detail.team ? detail.team.maxMembers : 0)
+                        }
+                        TfText {
+                            text: detail.team ? (detail.team.full ? qsTr("Team is full") : qsTr("%n place(s) left", "", detail.vacancies)) : ""
+                            font.pixelSize: Theme.fontXs
+                            font.weight: Font.Bold
+                            color: detail.team && detail.team.full ? Theme.warning : Theme.textSecondary
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    // invited: accept or decline right here
+                    Rectangle {
+                        visible: detail.myRole === "" && detail.team && !!detail.team.myInvitation
+                        Layout.fillWidth: true
+                        implicitHeight: inviteBanner.implicitHeight + 24
+                        radius: Theme.radius
+                        color: Theme.accentSubtle
+                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
+                        ColumnLayout {
+                            id: inviteBanner
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: 12
+                            spacing: 8
+                            TfText {
+                                text: qsTr("You're invited to join this team")
+                                font.weight: Font.ExtraBold
+                                Layout.fillWidth: true
+                            }
+                            TfText {
+                                visible: detail.team && detail.team.myInvitation && detail.team.myInvitation.message !== ""
+                                text: detail.team && detail.team.myInvitation ? "“" + detail.team.myInvitation.message + "”" : ""
+                                variant: "secondary"
+                                wrapMode: Text.WordWrap
+                                elide: Text.ElideNone
+                                Layout.fillWidth: true
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                TfButton {
+                                    text: qsTr("Accept and join")
+                                    variant: "primary"
+                                    compact: true
+                                    enabled: detail.team && !detail.team.full
+                                    onClicked: {
+                                        confirm.pendingAction = () => detail.respondInvitation("accept")
+                                        confirm.ask(qsTr("Join %1?").arg(detail.team.name), qsTr("You become a member and get the team chat."), qsTr("Join team"))
+                                    }
+                                }
+                                TfButton {
+                                    text: qsTr("Decline")
+                                    variant: "ghost"
+                                    compact: true
+                                    onClicked: { declineReply.clear(); declineDialog.open() }
+                                }
+                            }
+                        }
+                    }
+
+                    // recruitment (leader and team admins)
+                    Rectangle {
+                        visible: detail.team && detail.team.canManage
+                        Layout.fillWidth: true
+                        implicitHeight: recruitGrid.implicitHeight + 24
+                        radius: Theme.radius
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16) }
+                            GradientStop { position: 1; color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.10) }
+                        }
+                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                        GridLayout {
+                            id: recruitGrid
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: 12
+                            columns: detail.width < 460 ? 1 : detail.narrow ? 2 : 4
+                            columnSpacing: 10
+                            rowSpacing: 8
+                            ColumnLayout {
+                                spacing: 1
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.columnSpan: detail.width < 460 ? 1 : detail.narrow ? 2 : 1
+                                TfText { text: qsTr("Recruit"); font.weight: Font.ExtraBold; Layout.fillWidth: true }
+                                TfText {
+                                    text: detail.team ? [qsTr("%n pending application(s)", "", detail.team.pendingApplications ?? 0),
+                                                         qsTr("%n open invitation(s)", "", detail.team.pendingInvitations ?? 0),
+                                                         detail.team.inviteLinkActive ? qsTr("link active") : ""].filter(t => t !== "").join(" · ") : ""
+                                    variant: "muted"
+                                    font.pixelSize: Theme.fontXs
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+                            }
+                            TfButton {
+                                text: qsTr("Find members")
+                                variant: "primary"
+                                compact: true
+                                Layout.fillWidth: detail.narrow
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 400
+                                ToolTip.text: qsTr("Search registered people and see how well each fits the team")
+                                onClicked: finder.openFor(detail.team)
+                            }
+                            TfButton {
+                                text: qsTr("Invite via link")
+                                compact: true
+                                Layout.fillWidth: detail.narrow
+                                onClicked: linkDialog.openFor(detail.team)
+                            }
+                            TfButton {
+                                visible: !detail.narrow
+                                text: qsTr("Review")
+                                variant: "ghost"
+                                compact: true
+                                onClicked: detail.navigate("teams/" + detail.teamId + "/applications")
+                            }
+                        }
+                    }
+
                     // actions
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
                         TfButton {
-                            visible: detail.myRole === ""
+                            visible: detail.myRole === "" && !(detail.team && detail.team.myInvitation)
                             text: detail.team && detail.team.myApplication && detail.team.myApplication.status === "pending"
                                   ? qsTr("Application pending") : qsTr("Apply to join")
                             variant: "primary"
@@ -264,7 +434,7 @@ Item {
             Segmented {
                 options: [{ text: qsTr("Overview"), value: "overview" }, { text: qsTr("Members  %1").arg(detail.team ? detail.team.memberCount : 0), value: "members" }]
                          .concat(detail.team && detail.team.canManage
-                                 ? [{ text: qsTr("Applications  %1").arg(detail.team.pendingApplications ?? 0), value: "applications" }] : [])
+                                 ? [{ text: qsTr("Applications  %1").arg((detail.team.pendingApplications ?? 0) + (detail.team.pendingInvitations ?? 0)), value: "applications" }] : [])
                 currentValue: detail.currentTab
                 onActivated: value => detail.navigate("teams/" + detail.teamId + (value === "overview" ? "" : "/" + value))
             }
@@ -327,16 +497,16 @@ Item {
                             text: qsTr("No specific roles listed.")
                             variant: "muted"
                         }
-                        TfText { visible: detail.team && detail.team.skills.length > 0; text: qsTr("Skills"); variant: "label" }
-                        Flow {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            Repeater {
-                                model: detail.team ? detail.team.skills : []
-                                delegate: Chip { required property string modelData; text: modelData; skill: true }
-                            }
-                        }
                     }
+                }
+                Panel {
+                    title: qsTr("Skill coverage")
+                    subtitle: qsTr("What the team needs and what its members already cover")
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    Layout.columnSpan: detail.width > 1000 ? 2 : 1
+                    TeamSkillCoverage { width: parent.width; team: detail.team }
                 }
             }
 
@@ -353,6 +523,8 @@ Item {
                     delegate: Surface {
                         id: memberRow
                         required property var modelData
+                        readonly property var skills: (Backend.participantCard(modelData.studentId ?? "").skills ?? [])
+                                                      .slice().sort((a, b) => b.level - a.level).slice(0, 5)
                         Layout.fillWidth: true
                         implicitHeight: memberGrid.implicitHeight + 24
                         radius: Theme.radius
@@ -380,7 +552,7 @@ Item {
                                 Layout.fillWidth: true
                                 TfText { text: memberRow.modelData.name; font.weight: Font.Bold; Layout.fillWidth: true }
                                 TfText {
-                                    text: (memberRow.modelData.headline || memberRow.modelData.role) + " · " + qsTr("joined %1").arg(Hub.relativeTime(memberRow.modelData.joinedAt))
+                                    text: (memberRow.modelData.headline || memberRow.modelData.role) + " · " + qsTr("joined %1").arg(Hub.dateText(memberRow.modelData.joinedAt))
                                     variant: "muted"
                                     font.pixelSize: Theme.fontXs
                                     Layout.fillWidth: true
@@ -428,6 +600,21 @@ Item {
                                     }
                                 }
                             }
+                            Flow {
+                                visible: memberRow.skills.length > 0
+                                spacing: 6
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.columnSpan: memberGrid.columns
+                                Repeater {
+                                    model: memberRow.skills
+                                    delegate: Chip {
+                                        required property var modelData
+                                        text: Theme.skill(modelData.skill) + " · " + modelData.level
+                                        skill: true
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -444,8 +631,9 @@ Item {
                 ScrollRow {
                     Layout.fillWidth: true
                 Segmented {
-                    options: [{ text: qsTr("Pending"), value: "pending" }, { text: qsTr("Approved"), value: "approved" },
-                              { text: qsTr("Rejected"), value: "rejected" }, { text: qsTr("Withdrawn"), value: "withdrawn" },
+                    options: [{ text: qsTr("Pending"), value: "pending" }, { text: qsTr("Applications"), value: "applications" },
+                              { text: qsTr("Via link"), value: "link" }, { text: qsTr("Invitations"), value: "invitations" },
+                              { text: qsTr("Accepted"), value: "accepted" }, { text: qsTr("Declined"), value: "declined" },
                               { text: qsTr("All"), value: "" }]
                     currentValue: detail.appStatus
                     onActivated: value => { detail.appStatus = value; detail.loadApps(1) }
@@ -454,20 +642,46 @@ Item {
                 HubSkeleton { visible: detail.appsLoading && detail.apps.items.length === 0; rows: 2; Layout.fillWidth: true }
                 EmptyState {
                     visible: !detail.appsLoading && detail.apps.items.length === 0
-                    title: detail.appStatus === "pending" ? qsTr("No applications waiting") : qsTr("Nothing here")
-                    message: qsTr("New applications appear here and in your notifications.")
+                    title: detail.appStatus === "pending" ? qsTr("Nothing waiting") : qsTr("Nothing here")
+                    message: qsTr("Applications, link applications and the invitations you send appear here. Use Find members or Invite via link to recruit.")
                     Layout.fillWidth: true
                     Layout.topMargin: 20
                 }
                 Repeater {
                     model: detail.apps.items
-                    delegate: ApplicationCard {
+                    delegate: ColumnLayout {
+                        id: entry
                         required property var modelData
-                        application: modelData
-                        reviewer: true
+                        readonly property bool invitation: modelData.kind === "invitation"
+                        readonly property var report: detail.reportFor(modelData.person,
+                                                                       invitation ? {} : { applicationSkills: modelData.skills, expressedInterest: true })
                         Layout.fillWidth: true
-                        onDecide: (app, choice) => decisionDialog.openFor(app, choice)
-                        onOpenProfile: id => personDialog.show(id)
+                        spacing: 0
+                        ApplicationCard {
+                            visible: !entry.invitation
+                            application: entry.invitation ? ({}) : entry.modelData
+                            report: entry.invitation ? null : entry.report
+                            reviewer: true
+                            Layout.fillWidth: true
+                            onDecide: (app, choice) => decisionDialog.openFor(app, choice)
+                            onOpenProfile: id => personDialog.show(id)
+                            onOpenReport: app => reviewDialog.show(app.applicant, entry.report, false)
+                        }
+                        InvitationCard {
+                            visible: entry.invitation
+                            invitation: entry.invitation ? entry.modelData : ({})
+                            leader: true
+                            Layout.fillWidth: true
+                            onOpenProfile: person => reviewDialog.show(person, entry.report, false)
+                            onRevoke: inv => {
+                                confirm.pendingAction = () => Hub.post("/team-invitations/" + inv.id + "/revoke", {}, (status, data) => {
+                                    if (status === 200) { detail.notify(qsTr("Invitation withdrawn")); detail.load() }
+                                    else detail.notify(data.error ?? qsTr("That did not work."))
+                                })
+                                confirm.ask(qsTr("Withdraw the invitation to %1?").arg(inv.person ? inv.person.name : ""),
+                                            qsTr("They are told it was withdrawn."), qsTr("Withdraw"))
+                            }
+                        }
                     }
                 }
                 HubPager {

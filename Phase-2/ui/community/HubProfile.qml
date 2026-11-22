@@ -36,6 +36,11 @@ Item {
         interests.text = p.interests ?? ""
         anonymous.checked = !!p.acceptsAnonymous
         emailUpdates.checked = p.emailUpdates !== false
+        openToInvites.checked = p.openToInvites !== false
+        const links = p.links ?? []
+        link1.text = links[0] ?? ""
+        link2.text = links[1] ?? ""
+        link3.text = links[2] ?? ""
         avatar = p.avatar ?? ""
         color = p.color ?? colors[0]
         program = p.program ?? ""
@@ -152,6 +157,18 @@ Item {
                     TfTextArea { id: experience; maxLength: 1500; Layout.fillWidth: true }
                     HubLabel { text: qsTr("Interests") }
                     TfTextArea { id: interests; maxLength: 1000; minimumHeight: 56; Layout.fillWidth: true }
+                    HubLabel { text: qsTr("Portfolio and GitHub links"); hint: qsTr("Optional, up to 3 full https:// addresses. Team leaders see them when they look at your profile.") }
+                    TfTextField { id: link1; placeholderText: "https://github.com/your-name"; maximumLength: 200; Layout.fillWidth: true }
+                    TfTextField { id: link2; placeholderText: qsTr("https://… (portfolio, project, LinkedIn)"); maximumLength: 200; Layout.fillWidth: true }
+                    TfTextField { id: link3; placeholderText: "https://…"; maximumLength: 200; Layout.fillWidth: true }
+                    TfCheck {
+                        id: openToInvites
+                        Layout.fillWidth: true
+                        wrapWidth: width
+                        checked: true
+                        text: qsTr("Open to team invitations: team leaders can find me in Find members (with my profile and skills) and invite me")
+                        onToggled: value => openToInvites.checked = value
+                    }
                     TfCheck {
                         id: anonymous
                         Layout.fillWidth: true
@@ -184,15 +201,19 @@ Item {
                             variant: "primary"
                             enabled: !profile.saving && name.text.trim() !== ""
                             onClicked: {
+                                const links = [link1.text, link2.text, link3.text].map(t => t.trim()).filter(t => t !== "")
+                                const badLink = links.find(l => !/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/\S*)?$/.test(l))
                                 const problem = Hub.checkText(bio.text, 1500, qsTr("About you")) || Hub.checkText(experience.text, 1500, qsTr("Experience"))
                                                 || Hub.checkText(interests.text, 1000, qsTr("Interests"))
+                                                || (badLink ? qsTr("Links must be full https:// addresses: %1").arg(badLink) : "")
                                 if (problem !== "") { profile.error = problem; return }
                                 profile.saving = true
                                 profile.error = ""
                                 Hub.post("/profile", {
                                     name: name.text, headline: headline.text, bio: bio.text, skills: skills.text, experience: experience.text,
                                     interests: interests.text, avatar: profile.avatar, color: profile.color, acceptsAnonymous: anonymous.checked,
-                                    emailUpdates: emailUpdates.checked, program: profile.program
+                                    emailUpdates: emailUpdates.checked, program: profile.program, links: links,
+                                    openToInvites: openToInvites.checked
                                 }, (code, data) => {
                                     profile.saving = false
                                     if (code === 200) {

@@ -37,6 +37,9 @@ import threading
 import time
 from urllib.parse import parse_qs
 
+import recruitment
+from recruitment import RecruitmentMixin, normalize_skill
+
 # --------------------------------------------------------------------------- limits
 
 PAGE_SIZE = 10
@@ -304,19 +307,21 @@ def create_schema(db) -> None:
     ensure_column(db, "profiles", "program", "TEXT NOT NULL DEFAULT ''")
     ensure_column(db, "profiles", "email_updates", "INTEGER NOT NULL DEFAULT 1")
     db.execute("CREATE INDEX IF NOT EXISTS idx_profiles_student ON profiles (student_id)")
+    recruitment.create_schema(db, pk, real, ensure_column)
 
 
 # Parents before children, for web/tools/copy_database.py.
 HUB_TABLES = {
     "profiles": ["user_id", "display_name", "headline", "bio", "skills", "experience", "interests", "avatar",
-                 "color", "accepts_anonymous", "updated_at", "student_id", "program", "email_updates"],
+                 "color", "accepts_anonymous", "updated_at", "student_id", "program", "email_updates", "links",
+                 "open_to_invites"],
     "profile_photos": ["user_id", "content_type", "data", "version", "updated_at"],
     "teams": ["id", "name", "name_key", "tagline", "description", "objectives", "open_roles", "skills", "event_id",
-              "recruiting", "max_members", "created_by", "created_at", "updated_at"],
+              "recruiting", "max_members", "created_by", "created_at", "updated_at", "required_skills"],
     "team_members": ["team_id", "user_id", "role", "joined_at", "last_read_id"],
     "team_messages": ["id", "team_id", "user_id", "body", "created_at"],
     "team_applications": ["id", "team_id", "user_id", "introduction", "skills", "experience", "interests", "reason",
-                          "status", "response", "decided_by", "created_at", "decided_at"],
+                          "status", "response", "decided_by", "created_at", "decided_at", "source"],
     "event_settings": ["event_id", "organizer_id", "description", "requirements_text", "eligibility", "positions",
                        "capacity", "deadline", "accepting", "updated_at"],
     "event_applications": ["id", "event_id", "user_id", "position", "motivation", "experience", "availability",
@@ -328,11 +333,12 @@ HUB_TABLES = {
                      "created_at", "resolved_at"],
     "anon_blocks": ["target_kind", "target_id", "sender_id", "created_at"],
     "notifications": ["id", "user_id", "kind", "title", "body", "link", "ref_key", "read_at", "created_at"],
+    **recruitment.TABLES,
 }
 
 _PROFILE_SELECT = ("SELECT u.id, u.role, p.display_name, p.headline, p.bio, p.skills, p.experience, p.interests, "
-                   "p.avatar, p.color, p.accepts_anonymous, p.student_id, p.program, p.email_updates "
-                   "FROM users u LEFT JOIN profiles p ON p.user_id = u.id")
+                   "p.avatar, p.color, p.accepts_anonymous, p.student_id, p.program, p.email_updates, "
+                   "p.links, p.open_to_invites FROM users u LEFT JOIN profiles p ON p.user_id = u.id")
 PHOTO_PREFIX = "/api/hub/photos/"
 
 
@@ -342,7 +348,7 @@ def _marks(values) -> str:
 
 # --------------------------------------------------------------------------- the hub
 
-class Hub:
+class Hub(RecruitmentMixin):
     def __init__(self, db, rate_limit):
         """`rate_limit(limit, window)` makes a per-key limiter with a `take(key) -> bool`."""
         self.db = db
@@ -353,6 +359,8 @@ class Hub:
             "anon_new": rate_limit(5, 3600),
             "anon_reply": rate_limit(30, 3600),
             "report": rate_limit(10, 3600),
+            "invite": rate_limit(30, 3600),
+            "invite_link": rate_limit(10, 3600),
         }
         # Set by the server: mailer(user_id, kind, context) sends an email (web/email_service.py).
         self.mailer = None
@@ -409,7 +417,7 @@ class Hub:
             ("POST", r"/notifications/read", "read_notifications"),
             ("GET", r"/admin/reports", "admin_reports"),
             ("POST", r"/admin/reports/(\d+)/resolve", "admin_resolve_report"),
-        ]]
+        ] + self.recruitment_routes()]
 
     # ------------------------------------------------------------------ dispatch
     def handle(self, user: dict, method: str, path: str, query: str = "", body: dict | None = None):
@@ -429,6 +437,15 @@ class Hub:
                 return 200, result
         return 404, {"error": "Not found"}
 
+    # (used by web/recruitment.py)
+    _now = staticmethod(lambda: now())
+    _error = HubError
+    _clean_text = staticmethod(clean_text)
+    _unique_violation = staticmethod(lambda error: _is_unique_violation(error))
+    _page_args = staticmethod(lambda q, size=PAGE_SIZE: page_args(q, size))
+    _paginate = staticmethod(lambda items, page, size: paginate(items, page, size))
+    _profile_select = staticmethod(lambda: _PROFILE_SELECT)
+
     def _take(self, kind: str, user: dict, message: str):
         if not self.limits[kind].take(user["id"]):
             raise HubError(429, message)
@@ -436,7 +453,7 @@ class Hub:
     # ------------------------------------------------------------------ profiles
     def _profile_from_row(self, row, full: bool = False) -> dict:
         (uid, role, name, headline, bio, skills, experience, interests, avatar, color, accepts, student_id, program,
-         email_updates) = row
+         email_updates, links, open_to_invites) = row
         profile = {
             "id": uid, "name": name or "New member", "headline": headline or "",
             # a reference to the photo (fetched separately and cached by the app), never the image
@@ -447,7 +464,8 @@ class Hub:
         if full:
             profile.update({"bio": bio or "", "skills": _loads(skills, []), "experience": experience or "",
                             "interests": interests or "", "acceptsAnonymous": bool(accepts), "program": program or "",
-                            "emailUpdates": email_updates is None or bool(email_updates)})
+                            "emailUpdates": email_updates is None or bool(email_updates),
+                            "links": _loads(links, []), "openToInvites": open_to_invites is None or bool(open_to_invites)})
         return profile
 
     def profiles(self, ids, full: bool = False) -> dict[int, dict]:
@@ -519,6 +537,12 @@ class Hub:
                        program = excluded.program, email_updates = excluded.email_updates,
                        updated_at = excluded.updated_at""",
                 values + (user["id"],))
+            if "links" in body:
+                self.db.execute("UPDATE profiles SET links = ? WHERE user_id = ?",
+                                (json.dumps(recruitment.clean_links(body.get("links"), HubError)), user["id"]))
+            if "openToInvites" in body:
+                self.db.execute("UPDATE profiles SET open_to_invites = ? WHERE user_id = ?",
+                                (0 if body.get("openToInvites") is False else 1, user["id"]))
             # The photo: a new picture replaces the old one; empty removes it; the current
             # reference (or nothing said) keeps it.
             if new_photo:
@@ -731,7 +755,7 @@ class Hub:
     def _team_row(self, team_id):
         row = self.db.one(
             """SELECT id, name, tagline, description, objectives, open_roles, skills, event_id, recruiting,
-                      max_members, created_at FROM teams WHERE id = ?""", (int(team_id),))
+                      max_members, created_at, required_skills FROM teams WHERE id = ?""", (int(team_id),))
         if row is None:
             raise HubError(404, "This team does not exist (it may have been deleted).")
         return row
@@ -776,8 +800,13 @@ class Hub:
                 fields[column] = clean_text(body.get(key), what, limit, multiline=key != "tagline")
         if not partial or "openRoles" in body:
             fields["open_roles"] = json.dumps(clean_list(body.get("openRoles"), "Open roles", 10))
-        if not partial or "skills" in body:
-            fields["skills"] = json.dumps(clean_list(body.get("skills"), "Skills", 15))
+        if not partial or "requiredSkills" in body or "skills" in body:
+            if "requiredSkills" in body:
+                required = recruitment.clean_required_skills(body.get("requiredSkills"), clean_text, HubError)
+            else:  # older apps send names only: any level
+                required = {normalize_skill(s): 1 for s in clean_list(body.get("skills"), "Skills", 15)}
+            fields["skills"] = json.dumps(list(required))
+            fields["required_skills"] = json.dumps(required)
         if not partial or "eventId" in body:
             event_id = body.get("eventId") or None
             if event_id is not None and str(event_id) not in self._events():
@@ -796,7 +825,8 @@ class Hub:
         members = counts.get(team_id, 0) if counts is not None else self._member_count(team_id)
         return {
             "id": team_id, "name": row[1], "tagline": row[2], "openRoles": _loads(row[5], []),
-            "skills": _loads(row[6], []), "event": {"id": row[7], "name": event["name"]} if event else None,
+            "skills": _loads(row[6], []), "requiredSkills": self._required_skills(row),
+            "event": {"id": row[7], "name": event["name"]} if event else None,
             "recruiting": bool(row[8]), "maxMembers": row[9], "memberCount": members, "full": members >= row[9],
             "leader": (leaders or {}).get(team_id), "myRole": (roles or {}).get(team_id),
         }
@@ -816,7 +846,7 @@ class Hub:
             where.append("t.id IN (SELECT team_id FROM team_members WHERE user_id = ?)")
             params.append(user["id"])
         sql = ("SELECT t.id, t.name, t.tagline, t.description, t.objectives, t.open_roles, t.skills, t.event_id, "
-               "t.recruiting, t.max_members, t.created_at FROM teams t")
+               "t.recruiting, t.max_members, t.created_at, t.required_skills FROM teams t")
         if where:
             sql += " WHERE " + " AND ".join(where)
         rows = self.db.all(sql + " ORDER BY t.recruiting DESC, t.created_at DESC", tuple(params))
@@ -880,7 +910,16 @@ class Hub:
         team["canApply"] = (my_role is None and team["recruiting"] and not team["full"]
                             and not (mine and mine[1] == "pending"))
         team["canManage"] = my_role in ("leader", "admin")
+        team["vacancies"] = max(0, team["maxMembers"] - team["memberCount"])
+        invitation = self.db.one(
+            "SELECT id, expires_at, message FROM team_invitations WHERE team_id = ? AND user_id = ? AND status = 'pending'",
+            (team_id, user["id"]))
+        team["myInvitation"] = ({"id": invitation[0], "expiresAt": invitation[1], "message": invitation[2]}
+                                if invitation else None)
         if team["canManage"]:
+            team["pendingInvitations"] = self.db.one(
+                "SELECT COUNT(*) FROM team_invitations WHERE team_id = ? AND status = 'pending'", (team_id,))[0]
+            team["inviteLinkActive"] = self._active_link(team_id) is not None
             team["pendingApplications"] = self.db.one(
                 "SELECT COUNT(*) FROM team_applications WHERE team_id = ? AND status = 'pending'", (team_id,))[0]
             team["anonymousRequests"] = self.db.one(
@@ -1081,7 +1120,9 @@ class Hub:
 
     # ------------------------------------------------------------------ team applications
     def apply_to_team(self, user, team_id, q, body):
-        row = self._team_row(team_id)
+        return self._create_team_application(user, self._team_row(team_id), body, source="direct")
+
+    def _create_team_application(self, user, row, body, source):
         team_id = row[0]
         self._require_profile(user)
         fields = (
@@ -1105,19 +1146,20 @@ class Hub:
                     raise HubError(409, "You already have a pending application to this team.")
                 app_id = self.db.insert(
                     """INSERT INTO team_applications (team_id, user_id, introduction, skills, experience, interests,
-                           reason, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
-                    (team_id, user["id"], *fields, now()))
+                           reason, status, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+                    (team_id, user["id"], *fields, now(), source))
                 name = self.profile(user["id"])["name"]
+                how = "through your invitation link" if source == "link" else ""
                 for manager in self._team_managers(team_id):
                     self.notify(manager, "team_application", f"New application to {row[1]}",
-                                f"{name} wants to join.", f"#/teams/{team_id}/applications")
+                                f"{name} wants to join{' ' + how if how else ''}.", f"#/teams/{team_id}/applications")
         except HubError:
             raise
         except Exception as error:
             if _is_unique_violation(error):
                 raise HubError(409, "You already have a pending application to this team.")
             raise
-        return 201, {"application": {"id": app_id, "status": "pending"}}
+        return 201, {"application": {"id": app_id, "status": "pending", "source": source}, "teamId": team_id}
 
     def _team_app_dicts(self, rows, with_profiles=True) -> list[dict]:
         people = self.profiles([r[2] for r in rows], full=True) if with_profiles else {}
@@ -1131,11 +1173,11 @@ class Hub:
                         "applicant": people.get(r[2]) if with_profiles else None,
                         "introduction": r[3], "skills": _loads(r[4], []), "experience": r[5], "interests": r[6],
                         "reason": r[7], "status": r[8], "response": r[9], "createdAt": r[10], "decidedAt": r[11],
-                        "link": f"#/teams/{r[1]}"})
+                        "source": r[12] or "direct", "link": f"#/teams/{r[1]}"})
         return out
 
     _TEAM_APP_SELECT = ("SELECT id, team_id, user_id, introduction, skills, experience, interests, reason, status, "
-                        "response, created_at, decided_at FROM team_applications")
+                        "response, created_at, decided_at, source FROM team_applications")
 
     def team_applications(self, user, team_id, q, body):
         self._require_manager(team_id, user)
@@ -1564,6 +1606,10 @@ class Hub:
             "anonymousSentUnread": self.db.one(
                 "SELECT COUNT(*) FROM anon_threads WHERE sender_id = ? AND sender_unread = 1", (user["id"],))[0],
             "teams": self.conversations(user, q, body)["items"][:6],
+            "pendingInvitations": self.db.one(
+                "SELECT COUNT(*) FROM team_invitations WHERE user_id = ? AND status = 'pending' AND expires_at > ?",
+                (user["id"], now()))[0],
+            "linkClaim": self.link_claim_summary(user),
         }
 
     # ------------------------------------------------------------------ anonymous connections

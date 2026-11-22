@@ -65,7 +65,9 @@
     clear();
     try {
       await post(path, body);
-      location.assign("/app/");
+      // Back to the team invitation that sent the person here, if any (only /invite/ pages).
+      const next = new URLSearchParams(location.search).get("next") || "";
+      location.assign(/^\/invite\/[A-Za-z0-9_-]{20,64}$/.test(next) ? next : "/app/");
     } catch (error) {
       show(error.message);
       button.disabled = false;

@@ -1,4 +1,5 @@
 add_library(teamforge_core STATIC
+    Compatibility.cpp Compatibility.h
     CoverageOnlyStrategy.cpp CoverageOnlyStrategy.h
     DocumentText.cpp DocumentText.h
     Hub.cpp Hub.h

@@ -288,6 +288,62 @@ deadlines, capacity under simultaneous approvals, anonymity, rate limits, restar
 set `TEAMFORGE_TEST_SERVER`, optionally `TEAMFORGE_SHOTS` for screenshots);
 `node web/tests/test_appjs.mjs` (also `TF_hub`).
 
+### Team recruitment: Find members, invitations, invitation links, compatibility
+
+On a team's page the leader and team admins get a **Recruit** strip: how many places are left,
+pending applications and open invitations, and two actions.
+
+* **Find members** searches registered TeamForge people (never sample records) by name, skills,
+  languages, projects, education and interests, including the participant profile linked to each
+  account. Only people with a Community profile who have **"Open to team invitations"** switched on
+  (Community → Profile; on by default, can be turned off any time) are listed, and never members of
+  the team. Each card shows the shared profile photo, skills with levels, teams they are in, and a
+  compatibility score; the profile view adds the full report, projects, education and portfolio
+  links. No email addresses anywhere.
+* **Invite** sends a direct invitation with an optional message (notification, plus an email when
+  email is set up and the person allows it). It is open for 14 days. The person joins when *they*
+  accept, if there is still a place; they can also decline (with a reply). Leaders can withdraw it.
+  States: pending, accepted, declined, expired, withdrawn. One open invitation per person per team;
+  someone who already applied gets "review their application instead".
+* **Invite via link** makes a link `/invite/<token>`: 32 random bytes, only its SHA-256 stored,
+  valid 1, 7, 14 or 30 days, regenerate (the old link stops working) or revoke. The link page shows
+  the team's public details (name, leader, description, needed skills, places left; never members
+  or ids). Visitors sign in or register and come straight back; "Review and apply" remembers the
+  invitation on the server, so it survives registration and onboarding, and the app opens it with
+  the person's own compatibility and the application form. **Opening a link never adds anyone to a
+  team**: it leads to an application the leader approves or rejects. The link address can be
+  copied right after it is made; afterwards only its fingerprint exists, so share it again by
+  making a new one.
+* The team's **Applications** tab lists applications and invitations together: Pending,
+  Applications, Via link, Invitations, Accepted, Declined. Application cards show the compatibility
+  (matching skills, skills not shown, suggested role); "Profile & fit" opens the full report.
+  The leader always decides; nothing is approved or rejected automatically.
+* Team pages show **skill coverage** for everyone: each required skill as covered, partly covered
+  (someone has it below the level) or missing, from the members' participant profiles. Teams list
+  required skills **with minimum levels** (Edit team).
+
+**How the compatibility score works** (`src/core/Compatibility.h`, run in the app): it is the
+project's existing weighted matching (skill coverage 40%, filling the team's gaps 25%, experience
+15%, interest 10%, role variety 10%) against the team's required skills and its current members, so
+the same data always gives the same score, and someone who covers a missing skill ranks above
+someone who duplicates a covered one. The report lists matching skills (marked *backed by
+projects or resume*, *self-assessed*, or *level not stated*), skills below the level, skills not
+shown in the profile, strengths, a suggested role, questions to ask, and each factor's
+contribution. Missing information is never treated as inability: a missing skill is "not shown in
+the profile", a skill without a level counts at the team's minimum, and an empty profile gets
+"not enough information" instead of a low score. TeamForge does not verify skills, and says so.
+There is no language model involved.
+
+Rules the server enforces (`web/recruitment.py`, tested in `web/tests/test_recruitment.py`): only
+the team's leader and admins search, invite, see the list and manage links; capacity is checked
+again in the same transaction that adds a member (two people accepting the last place: one gets
+it); unknown, expired and revoked links get the same answer; rate limits on invitations, links
+and link previews; `/login?next=` only returns to `/invite/` pages (no open redirect).
+
+Membership rules are unchanged: a person may be in several teams (the cards show which).
+Not built: requesting more information from an applicant (the decision message is the way to
+write to them), and team logo uploads (teams show initials).
+
 ### One identity per person, and profile photos
 
 Every account has one identity, the Community profile row on the server (name, academic details,
@@ -344,11 +400,13 @@ and scroll sideways, with a note. Tested at 320, 390 and 430 px wide (`tests/tst
 web/
   server.py              accounts, data API, static files (Python standard library + psycopg)
   hub.py                 Community: teams, chat, applications, anonymous requests, notifications, identities, photos
+  recruitment.py         team recruitment: find members, invitations, invitation links
   email_service.py       email provider adapter (Brevo / outbox for development / off)
   email_templates.py     the branded emails
   requirements.txt       psycopg (only for PostgreSQL)
   static/login.html      sign-in / create account (browser can save the password; show/hide password)
   static/forgot.html, reset.html, verify.html   password reset and email confirmation
+  static/invite.html     a team's invitation link page (/invite/<token>)
   static/admin.html      roles, reported anonymous conversations, data reset (admins)
   static/app/index.html  loads TeamForge; app.js = data sync; app.css
   static/app/TeamForge.{js,wasm}, qtloader.js   ← copied from build-wasm/

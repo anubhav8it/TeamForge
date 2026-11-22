@@ -31,6 +31,7 @@ class TestController : public QObject
 private slots:
     void init();
     void loadsSampleData();
+    void communityTeamCompatibility();
     void rankingIsPassedThroughFromCore();
     void teamActionsUseCoreRules();
     void suggestAndFinalize();
@@ -121,6 +122,48 @@ ProjectRequirement TestController::coreRequirement(const std::string& id) const
             return r;
     }
     throw NotFoundError(id);
+}
+
+// Community recruitment: the bridge builds the team from the hub's team map (required skills with
+// levels, members by participant profile id) and scores a person with core/Compatibility.h.
+void TestController::communityTeamCompatibility()
+{
+    TeamForgeController c(dataDir());
+    QVERIFY(c.enterWorkspace("participant"));
+    const QVariantMap team{
+        {QStringLiteral("name"), QStringLiteral("Razor")},
+        {QStringLiteral("requiredSkills"), QVariantMap{{QStringLiteral("c++"), 3}, {QStringLiteral("qt"), 2},
+                                                       {QStringLiteral("testing"), 3}}},
+        {QStringLiteral("maxMembers"), 4},
+        {QStringLiteral("openRoles"), QStringList{QStringLiteral("Tester")}},
+        {QStringLiteral("members"), QVariantList{QVariantMap{{QStringLiteral("studentId"), QStringLiteral("tf-001")}}}}};
+    // Covered by tf-001 (c++ 4); qt and testing missing.
+    const QVariantList coverage = c.teamSkillCoverage(team);
+    QCOMPARE(coverage.size(), 3);
+    QCOMPARE(coverage[0].toMap().value(QStringLiteral("state")).toString(), QStringLiteral("covered"));
+    QCOMPARE(coverage[1].toMap().value(QStringLiteral("state")).toString(), QStringLiteral("missing"));
+
+    // TF-P001 (qt 3, testing 4, UI/Testing) fills both gaps.
+    const QVariantMap person{{QStringLiteral("id"), 7}, {QStringLiteral("name"), QStringLiteral("Anubhav")},
+                             {QStringLiteral("studentId"), QStringLiteral("TF-P001")}};
+    const QVariantMap report = c.teamCompatibility(team, person);
+    QVERIFY(report.value(QStringLiteral("enoughInformation")).toBool());
+    QVERIFY(report.value(QStringLiteral("hasParticipantProfile")).toBool());
+    QCOMPARE(report.value(QStringLiteral("matching")).toList().size(), 2);
+    QCOMPARE(report.value(QStringLiteral("notShown")).toStringList(), QStringList{QStringLiteral("c++")});
+    QVERIFY(report.value(QStringLiteral("percent")).toInt() > 0);
+    QVERIFY(!report.value(QStringLiteral("explanation")).toStringList().isEmpty());
+
+    // An account without a participant profile: Community skills without levels, benefit of the doubt.
+    const QVariantMap newcomer{{QStringLiteral("id"), 9}, {QStringLiteral("name"), QStringLiteral("New")},
+                               {QStringLiteral("skills"), QStringList{QStringLiteral("Testing")}}};
+    const QVariantMap unrated = c.teamCompatibility(team, newcomer);
+    QVERIFY(!unrated.value(QStringLiteral("hasParticipantProfile")).toBool());
+    QCOMPARE(unrated.value(QStringLiteral("matching")).toList().first().toMap().value(QStringLiteral("evidence")).toString(),
+             QStringLiteral("unrated"));
+    // Nobody's details leak beyond the participant profile.
+    QCOMPARE(c.participantCard(QStringLiteral("TF-P001")).value(QStringLiteral("name")).toString(), QStringLiteral("Anubhav Bisht"));
+    QVERIFY(c.participantCard(QStringLiteral("no-such-id")).isEmpty());
 }
 
 void TestController::loadsSampleData()

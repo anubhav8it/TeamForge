@@ -76,6 +76,50 @@ Item {
             }
             }
 
+            // ------------------------------------------------------------ invitations
+            Repeater {
+                model: [
+                    Hub.summary.linkClaim ? { title: qsTr("You opened an invitation to join %1").arg(Hub.summary.linkClaim.teamName),
+                                              text: qsTr("See how you fit the team and apply."), action: qsTr("Review"), route: "join" } : null,
+                    (Hub.summary.pendingInvitations ?? 0) > 0
+                        ? { title: qsTr("%n team invitation(s) waiting for you", "", Hub.summary.pendingInvitations),
+                            text: qsTr("Accept to join, or decline."), action: qsTr("Open"), route: "invitations" } : null
+                ].filter(b => b !== null)
+                delegate: Rectangle {
+                    id: banner
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.leftMargin: home.margin
+                    Layout.rightMargin: home.margin
+                    implicitHeight: bannerGrid.implicitHeight + 24
+                    radius: Theme.radius
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0; color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) }
+                        GradientStop { position: 1; color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.12) }
+                    }
+                    border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
+                    GridLayout {
+                        id: bannerGrid
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.margins: 14
+                        columns: home.narrow ? 1 : 2
+                        columnSpacing: 12
+                        rowSpacing: 8
+                        ColumnLayout {
+                            spacing: 2
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            TfText { text: banner.modelData.title; font.weight: Font.ExtraBold; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            TfText { text: banner.modelData.text; variant: "muted"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        }
+                        TfButton { text: banner.modelData.action; variant: "primary"; compact: true; onClicked: home.navigate(banner.modelData.route) }
+                    }
+                }
+            }
+
             // ------------------------------------------------------------ tiles
             GridLayout {
                 Layout.fillWidth: true

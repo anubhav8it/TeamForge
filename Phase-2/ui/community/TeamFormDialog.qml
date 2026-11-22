@@ -10,7 +10,24 @@ HubDialog {
 
     property var team: null          // editing when set
     property var events: []          // [{id, name}] for the optional event link
+    property var required: []        // [{ skill, level }]: what the team needs, with minimum levels
     signal saved(var team)
+
+    function addSkill() {
+        const name = newSkill.text.trim().toLowerCase().replace(/\s+/g, " ")
+        if (name === "")
+            return
+        if (required.length >= 15) {
+            error = qsTr("At most 15 required skills.")
+            return
+        }
+        if (!required.some(r => r.skill === name))
+            required = required.concat([{ skill: name, level: 2 }])
+        newSkill.text = ""
+    }
+    function setLevel(skill, level) {
+        required = required.map(r => r.skill === skill ? { skill: skill, level: level } : r)
+    }
 
     title: team ? qsTr("Edit team") : qsTr("Create a team")
     subtitle: team ? "" : qsTr("You become the team's leader. People can then apply to join, and members get a private chat.")
@@ -24,7 +41,8 @@ HubDialog {
         description.text = existing ? existing.description : ""
         objectives.text = existing ? existing.objectives : ""
         roles.text = existing ? existing.openRoles.join(", ") : ""
-        skills.text = existing ? existing.skills.join(", ") : ""
+        required = existing ? Object.keys(existing.requiredSkills ?? {}).map(s => ({ skill: s, level: existing.requiredSkills[s] })) : []
+        newSkill.text = ""
         size.value = existing ? existing.maxMembers : 4
         recruiting.checked = existing ? existing.recruiting : true
         Hub.get("/events?pageSize=50", (status, data) => {
@@ -45,7 +63,8 @@ HubDialog {
         }
         const body = {
             name: name.text, tagline: tagline.text, description: description.text, objectives: objectives.text,
-            openRoles: roles.text, skills: skills.text, maxMembers: size.value, recruiting: recruiting.checked,
+            openRoles: roles.text, requiredSkills: Object.fromEntries(form.required.map(r => [r.skill, r.level])),
+            maxMembers: size.value, recruiting: recruiting.checked,
             eventId: eventBox.currentIndex > 0 ? form.events[eventBox.currentIndex - 1].id : null
         }
         busy = true
@@ -70,8 +89,50 @@ HubDialog {
     TfTextArea { id: objectives; maxLength: 2000; placeholderText: qsTr("What the team wants to achieve"); Layout.fillWidth: true }
     HubLabel { text: qsTr("Open roles"); hint: qsTr("Separate with commas, e.g. Frontend, Tester") }
     TfTextField { id: roles; Layout.fillWidth: true }
-    HubLabel { text: qsTr("Skills you use"); hint: qsTr("Separate with commas") }
-    TfTextField { id: skills; Layout.fillWidth: true }
+    HubLabel {
+        text: qsTr("Skills the team needs")
+        hint: qsTr("With the minimum level for each. Used for skill coverage and to show how well people fit.")
+    }
+    Repeater {
+        model: form.required
+        delegate: RowLayout {
+            id: skillRow
+            required property var modelData
+            Layout.fillWidth: true
+            spacing: 10
+            TfText { text: Theme.skill(skillRow.modelData.skill); font.weight: Font.Bold; Layout.fillWidth: true; Layout.minimumWidth: 0 }
+            TfText {
+                visible: form.width > 420
+                text: skillRow.modelData.level === 1 ? qsTr("Any level") : Theme.levelName(skillRow.modelData.level)
+                variant: "muted"
+                font.pixelSize: Theme.fontXs
+            }
+            LevelPips {
+                level: skillRow.modelData.level
+                interactive: true
+                segmentWidth: 18
+                onPicked: level => form.setLevel(skillRow.modelData.skill, level)
+            }
+            TfButton {
+                text: "✕"
+                compact: true
+                variant: "ghost"
+                Accessible.name: qsTr("Remove %1").arg(skillRow.modelData.skill)
+                onClicked: form.required = form.required.filter(r => r.skill !== skillRow.modelData.skill)
+            }
+        }
+    }
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        SkillField {
+            id: newSkill
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            onAccepted: form.addSkill()
+        }
+        TfButton { text: qsTr("Add"); compact: true; enabled: newSkill.text.trim() !== ""; onClicked: form.addSkill() }
+    }
     RowLayout {
         Layout.fillWidth: true
         spacing: 16
