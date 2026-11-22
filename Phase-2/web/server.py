@@ -15,6 +15,9 @@ data shared between people.
 * Per-account session: each account keeps its own session.json (last workspace, own profile,
   recent projects).
 * Storage: PostgreSQL when DATABASE_URL is set (Render), otherwise a local SQLite file.
+* Password reset and email verification: random single-use tokens, stored only as hashes, with an
+  expiry; links in emails come from APP_BASE_URL. Emails go through web/email_service.py
+  (EMAIL_PROVIDER etc.); without it, the flows still work but nothing is emailed.
 * Reading photos and scans of resumes (optional): POST /api/read-document passes the picture to
   Azure AI Document Intelligence (prebuilt-read) and returns the text it read, with its
   confidence in each word. Set AZURE_DOCINTEL_ENDPOINT and AZURE_DOCINTEL_KEY to turn it on.
@@ -50,6 +53,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import hub as hub_module  # web/hub.py: teams, chat, applications, anonymous requests, notifications
+import email_templates  # web/email_templates.py: the branded emails
+from email_service import EmailService  # web/email_service.py: provider adapter (Brevo / outbox / off)
 
 # --------------------------------------------------------------------------- configuration
 
@@ -100,6 +105,10 @@ AZURE_DOCINTEL_KEY = os.environ.get("AZURE_DOCINTEL_KEY", "").strip()
 READ_MAX_BYTES = int(float(os.environ.get("TEAMFORGE_READ_MAX_MB", "4")) * 1024 * 1024)
 READS_PER_HOUR = int(os.environ.get("TEAMFORGE_READS_PER_HOUR", "10"))   # per account
 READS_PER_MINUTE = int(os.environ.get("TEAMFORGE_READS_PER_MINUTE", "15"))  # whole server
+
+# Account emails: how long a link works.
+RESET_MINUTES = 30
+VERIFY_HOURS = 48
 
 log = logging.getLogger("teamforge")
 
@@ -308,8 +317,12 @@ class Database:
                 content TEXT NOT NULL, version INTEGER NOT NULL, updated_at {real} NOT NULL,
                 PRIMARY KEY (user_id, name))""",
         ]
+        statements.append(f"""CREATE TABLE IF NOT EXISTS auth_tokens (
+                token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                purpose TEXT NOT NULL, expires_at {real} NOT NULL, used_at {real}, created_at {real} NOT NULL)""")
         for sql in statements:
             self.execute(sql)
+        hub_module.ensure_column(self, "users", "email_verified_at", real)
         hub_module.create_schema(self)
 
 
@@ -437,6 +450,56 @@ class TeamForgeStore:
     def list_users(self):
         rows = self.db.all("SELECT id, email, role, created_at, last_login FROM users ORDER BY created_at")
         return [{"id": r[0], "email": r[1], "role": r[2], "createdAt": r[3], "lastLogin": r[4]} for r in rows]
+
+    # ---- one-time tokens (password reset, email verification)
+    def create_token(self, user_id, purpose: str, seconds: float) -> str:
+        """A new random token for `purpose`; earlier unused ones for the same purpose stop working.
+        Only its SHA-256 is stored, so a database leak does not leak working links."""
+        token = secrets.token_urlsafe(32)
+        with self.db.transaction():
+            self.db.execute("DELETE FROM auth_tokens WHERE user_id = ? AND purpose = ?", (user_id, purpose))
+            self.db.execute("DELETE FROM auth_tokens WHERE expires_at < ?", (now() - 86400,))
+            self.db.execute(
+                "INSERT INTO auth_tokens (token_hash, user_id, purpose, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
+                (token_hash(token), user_id, purpose, now() + seconds, now()))
+        return token
+
+    def consume_token(self, token: str, purpose: str):
+        """The account id for a valid, unused, unexpired token, which is then used up; else None."""
+        if not isinstance(token, str) or not 20 <= len(token) <= 100:
+            return None
+        with self.db.transaction():
+            row = self.db.one(
+                "SELECT user_id FROM auth_tokens WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?",
+                (token_hash(token), purpose, now()))
+            if row is None:
+                return None
+            self.db.execute("UPDATE auth_tokens SET used_at = ? WHERE token_hash = ?", (now(), token_hash(token)))
+            return row[0]
+
+    def token_valid(self, token: str, purpose: str) -> bool:
+        if not isinstance(token, str) or not 20 <= len(token) <= 100:
+            return False
+        return self.db.one("SELECT 1 FROM auth_tokens WHERE token_hash = ? AND purpose = ? AND used_at IS NULL "
+                           "AND expires_at > ?", (token_hash(token), purpose, now())) is not None
+
+    def set_password(self, user_id, password: str):
+        """New password (same PBKDF2 hashing as registration); every session of the account ends."""
+        with self.db.transaction():
+            self.db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), user_id))
+            self.db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            self.db.execute("DELETE FROM auth_tokens WHERE user_id = ? AND purpose = 'reset'", (user_id,))
+
+    def mark_verified(self, user_id):
+        self.db.execute("UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?", (now(), user_id))
+
+    def email_of(self, user_id):
+        row = self.db.one("SELECT email FROM users WHERE id = ?", (user_id,))
+        return row[0] if row else None
+
+    def is_verified(self, user_id) -> bool:
+        row = self.db.one("SELECT email_verified_at FROM users WHERE id = ?", (user_id,))
+        return bool(row and row[0])
 
     def set_role(self, user_id, role):
         with self.db.lock:
@@ -707,6 +770,11 @@ class Handler(BaseHTTPRequestHandler):
     reader = DocumentReader(AZURE_DOCINTEL_ENDPOINT, AZURE_DOCINTEL_KEY)
     reads_per_account = RateLimit(READS_PER_HOUR, 3600)
     reads_on_server = RateLimit(READS_PER_MINUTE, 60)
+    email: EmailService = None  # set in main()
+    resets_per_ip = RateLimit(5, 900)
+    resets_per_email = RateLimit(3, 3600)
+    reset_attempts_per_ip = RateLimit(20, 900)
+    verify_mails_per_account = RateLimit(3, 3600)
 
     # ---- plumbing
     def log_message(self, fmt, *args):
@@ -852,6 +920,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.current_user():
                 return self.redirect("/app/")
             return self.serve_file(STATIC_DIR / "login.html", csp=PAGE_CSP)
+        if path in ("/forgot", "/reset", "/verify"):
+            page = {"/forgot": "forgot.html", "/reset": "reset.html", "/verify": "verify.html"}[path]
+            return self.serve_file(STATIC_DIR / page, csp=PAGE_CSP)
         if path == "/admin":
             user = self.current_user()
             if not user:
@@ -913,7 +984,8 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             return None
         return {"id": user["id"], "email": user["email"], "role": user["role"],
-                "workspaces": WORKSPACES[user["role"]].split(",")}
+                "workspaces": WORKSPACES[user["role"]].split(","),
+                "emailVerified": Handler.store.is_verified(user["id"]) if Handler.store else False}
 
     # ---- write routes
     def route_write(self, path, body):
@@ -924,9 +996,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/logout":
             self.store.delete_session(self.token())
             return self.send_json(200, {"ok": True}, cookie=self.session_cookie("", 0))
+        if path == "/api/password/forgot":
+            return self.forgot_password(body)
+        if path == "/api/password/reset":
+            return self.reset_password(body)
+        if path == "/api/password/check":
+            return self.send_json(200, {"valid": self.store.token_valid(body.get("token"), "reset")})
+        if path == "/api/verify-email":
+            return self.verify_email(body)
         user = self.current_user()
         if not user:
             return self.send_json(401, {"error": "Please sign in again."})
+        if path == "/api/verify-email/resend":
+            return self.resend_verification(user)
         if path.startswith("/api/hub/") and self.command == "POST":
             return self.hub_request(user, path, "", body)
         match = re.fullmatch(r"/api/files/([A-Za-z0-9_.\-]+)", path)
@@ -960,6 +1042,69 @@ class Handler(BaseHTTPRequestHandler):
                                           path[len("/api/hub"):], query, body)
         return self.send_json(status, payload)
 
+    # ---- password reset and email verification
+    def forgot_password(self, body):
+        """Always the same answer, whether or not the email has an account (no account discovery)."""
+        email, _ = self.credentials(body)
+        answer = {"ok": True, "message": "If an account exists for that email, a link to choose a new password is on "
+                                         "its way. Check your inbox and spam folder."}
+        if not self.resets_per_ip.take(self.address_string()):
+            return self.send_json(429, {"error": "Too many requests. Wait a few minutes and try again."})
+        if not EMAIL_RE.match(email or ""):
+            return self.send_json(400, {"error": "Enter a valid email address."})
+        user = self.store.find_user_by_email(email)
+        if user and self.resets_per_email.take(email):
+            if not self.email.links_ready:
+                log.warning("password reset requested but APP_BASE_URL is not set: no email sent")
+            else:
+                token = self.store.create_token(user["id"], "reset", RESET_MINUTES * 60)
+                self.email.send(email_templates.password_reset(
+                    email, self.email.link("/reset?token=" + token), self.email.base_url, RESET_MINUTES))
+        return self.send_json(200, answer)
+
+    def reset_password(self, body):
+        if not self.reset_attempts_per_ip.take(self.address_string()):
+            return self.send_json(429, {"error": "Too many attempts. Wait a few minutes and try again."})
+        password = str(body.get("password", ""))
+        if not 8 <= len(password) <= 128:
+            return self.send_json(400, {"error": "Use a password of 8 to 128 characters."})
+        user_id = self.store.consume_token(body.get("token"), "reset")
+        if user_id is None:
+            return self.send_json(400, {"error": "This link is invalid or has expired. Ask for a new one."})
+        self.store.set_password(user_id, password)
+        self.store.mark_verified(user_id)  # the link proved the address
+        log.info("password reset for account %s", user_id)
+        return self.send_json(200, {"ok": True})
+
+    def verify_email(self, body):
+        if not self.reset_attempts_per_ip.take(self.address_string()):
+            return self.send_json(429, {"error": "Too many attempts. Wait a few minutes and try again."})
+        user_id = self.store.consume_token(body.get("token"), "verify")
+        if user_id is None:
+            return self.send_json(400, {"error": "This link is invalid or has expired. Sign in and ask for a new one."})
+        self.store.mark_verified(user_id)
+        return self.send_json(200, {"ok": True})
+
+    def resend_verification(self, user):
+        if self.store.is_verified(user["id"]):
+            return self.send_json(200, {"ok": True, "message": "Your email is already confirmed."})
+        if not self.verify_mails_per_account.take(user["id"]):
+            return self.send_json(429, {"error": "You asked for several emails already. Try again later."})
+        if not (self.email.enabled and self.email.links_ready):
+            return self.send_json(503, {"error": "Email is not set up on this server yet."})
+        token = self.store.create_token(user["id"], "verify", VERIFY_HOURS * 3600)
+        self.email.send(email_templates.verify_email(user["email"], self.email.link("/verify?token=" + token),
+                                                     self.email.base_url, VERIFY_HOURS))
+        return self.send_json(200, {"ok": True, "message": "Confirmation email sent. Check your inbox."})
+
+    def send_account_emails(self, user_id, email):
+        if not (self.email and self.email.enabled and self.email.links_ready):
+            return
+        token = self.store.create_token(user_id, "verify", VERIFY_HOURS * 3600)
+        self.email.send(email_templates.verify_email(email, self.email.link("/verify?token=" + token),
+                                                     self.email.base_url, VERIFY_HOURS))
+        self.email.send(email_templates.welcome(email, self.email.link("/app/"), self.email.base_url))
+
     def credentials(self, body):
         email = str(body.get("email", "")).strip().lower()
         password = str(body.get("password", ""))
@@ -981,6 +1126,7 @@ class Handler(BaseHTTPRequestHandler):
             raise
         token = self.store.create_session(user["id"])
         log.info("registered %s as %s", email, user["role"])
+        self.send_account_emails(user["id"], email)
         return self.send_json(201, {"user": self.public_user(user)},
                               cookie=self.session_cookie(token, SESSION_DAYS * 86400))
 
@@ -1006,6 +1152,12 @@ class Handler(BaseHTTPRequestHandler):
             if error:
                 return self.send_json(400, {"error": error})
             version = self.store.save_user_file(user["id"], name, content)
+            try:  # the participant profile this account uses: one identity in the Community
+                student_id = json.loads(content).get("myProfileId")
+                if student_id:
+                    self.hub.link_student(user["id"], student_id)
+            except (ValueError, AttributeError):
+                pass
             return self.send_json(200, {"status": "saved", "version": version})
         if name not in ALL_SHARED:
             return self.send_json(404, {"error": "Unknown file."})
@@ -1116,6 +1268,25 @@ class Handler(BaseHTTPRequestHandler):
 
 # --------------------------------------------------------------------------- main
 
+def make_mailer(store: "TeamForgeStore", service: EmailService):
+    """What web/hub.py calls to email someone about a decision, an invitation or a team change."""
+    builders = {
+        "application_decision": lambda to, link, c: email_templates.application_decision(
+            to, link, service.base_url, c["target"], c["kind"], c["approved"], c.get("message", "")),
+        "invitation": lambda to, link, c: email_templates.invitation(to, link, service.base_url, c["target"], c["kind"]),
+        "team_notification": lambda to, link, c: email_templates.team_notification(
+            to, link, service.base_url, c["target"], c["text"]),
+    }
+
+    def mailer(user_id, kind, context):
+        if not (service.enabled and service.links_ready) or kind not in builders:
+            return
+        to = store.email_of(user_id)
+        if to:
+            service.send(builders[kind](to, service.link("/app/"), context))
+    return mailer
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     db = Database(DATABASE_URL, SQLITE_PATH)
@@ -1124,6 +1295,13 @@ def main():
         log.info("first start: shared data created from the sample data")
     Handler.store = store
     Handler.hub = hub_module.Hub(db, RateLimit)
+    Handler.hub.migrate()
+    Handler.email = EmailService.from_environment(WEB_DIR)
+    Handler.hub.mailer = make_mailer(store, Handler.email)
+    if not Handler.email.enabled:
+        log.info("EMAIL_PROVIDER is not set: password-reset and other emails are not sent (see web/email_service.py).")
+    elif not Handler.email.links_ready:
+        log.warning("APP_BASE_URL is not set: emails with links (password reset, verification) are not sent.")
     if not ADMIN_EMAILS:
         log.warning("ADMIN_EMAILS is not set: nobody can become admin (Developer workspace, user roles).")
     if not Handler.reader.available:

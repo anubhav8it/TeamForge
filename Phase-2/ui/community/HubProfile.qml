@@ -23,6 +23,9 @@ Item {
     property string error: ""
     property string email: ""
     property bool suggested: false
+    property var current: ({})        // the saved profile (for the picker's current photo)
+    property bool linked: false       // uses a participant profile: name and academics come from it
+    property string program: ""
 
     function fill(p) {
         name.text = p.name === "New member" ? "" : (p.name ?? "")
@@ -32,8 +35,12 @@ Item {
         experience.text = p.experience ?? ""
         interests.text = p.interests ?? ""
         anonymous.checked = !!p.acceptsAnonymous
+        emailUpdates.checked = p.emailUpdates !== false
         avatar = p.avatar ?? ""
         color = p.color ?? colors[0]
+        program = p.program ?? ""
+        current = p
+        linked = (p.studentId ?? "") !== ""
     }
     Component.onCompleted: Hub.get("/profile", (code, data) => {
         loading = false
@@ -50,17 +57,6 @@ Item {
         }
     })
 
-    Connections {
-        target: Hub
-        function onAvatarPicked(dataUrl) { profile.avatar = dataUrl }
-        function onAvatarFailed(message) { profile.notify(message) }
-    }
-    FileDialog {
-        id: fileDialog
-        title: qsTr("Choose a profile picture")
-        nameFilters: [qsTr("Pictures (*.jpg *.jpeg *.png *.webp *.bmp *.gif)")]
-        onAccepted: Hub.avatarFromFile(selectedFile)
-    }
 
     ScrollView {
         anchors.fill: parent
@@ -79,7 +75,7 @@ Item {
                 title: qsTr("Community profile")
                 subtitle: qsTr("Shown to team leaders and organisers with your applications, and to your teammates. Your email (%1) is never shown.").arg(profile.email)
                 Layout.fillWidth: true
-                Layout.margins: 24
+                Layout.margins: profile.width < 520 ? 12 : 24
 
                 ColumnLayout {
                     width: parent.width
@@ -99,30 +95,24 @@ Item {
                         }
                     }
 
-                    // picture + colour
+                    // photo (the same picker as in onboarding) + colour for the initials
+                    PhotoPicker {
+                        id: photoPicker
+                        Layout.fillWidth: true
+                        compact: profile.width >= 460
+                        size: 88
+                        name: name.text
+                        person: ({ id: profile.current.id, name: name.text, avatar: profile.current.avatar, color: profile.color })
+                        onCropped: url => profile.avatar = url
+                        onRemoved: profile.avatar = ""
+                    }
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 16
-                        HubAvatar { person: ({ name: name.text, avatar: profile.avatar, color: profile.color }); size: 84 }
                         ColumnLayout {
                             spacing: 8
                             Layout.fillWidth: true
-                            RowLayout {
-                                spacing: 8
-                                TfButton {
-                                    text: profile.avatar !== "" ? qsTr("Change picture") : qsTr("Upload picture")
-                                    compact: true
-                                    onClicked: Hub.browser ? Hub.pickAvatar() : fileDialog.open()
-                                }
-                                TfButton {
-                                    visible: profile.avatar !== ""
-                                    text: qsTr("Remove")
-                                    compact: true
-                                    variant: "ghost"
-                                    onClicked: profile.avatar = ""
-                                }
-                            }
-                            TfText { text: qsTr("Without a picture, your initials show on this colour:"); variant: "muted"; font.pixelSize: Theme.fontXs }
+                            TfText { text: qsTr("Without a photo, your initials show on this colour:"); variant: "muted"; font.pixelSize: Theme.fontXs }
                             Row {
                                 spacing: 8
                                 Repeater {
@@ -146,8 +136,12 @@ Item {
                         }
                     }
 
-                    HubLabel { text: qsTr("Name"); hint: qsTr("Required. How others see you.") }
-                    TfTextField { id: name; maximumLength: 60; placeholderText: qsTr("Your name"); Layout.fillWidth: true }
+                    HubLabel {
+                        text: qsTr("Name")
+                        hint: profile.linked ? qsTr("Comes from your TeamForge profile (My profile → Edit), so it is the same everywhere.")
+                                             : qsTr("Required. How others see you.")
+                    }
+                    TfTextField { id: name; maximumLength: 60; placeholderText: qsTr("Your name"); readOnly: profile.linked; opacity: profile.linked ? 0.75 : 1; Layout.fillWidth: true }
                     HubLabel { text: qsTr("Headline") }
                     TfTextField { id: headline; maximumLength: 120; placeholderText: qsTr("e.g. Frontend developer, B.Tech CSE 2nd year"); Layout.fillWidth: true }
                     HubLabel { text: qsTr("About you") }
@@ -160,8 +154,18 @@ Item {
                     TfTextArea { id: interests; maxLength: 1000; minimumHeight: 56; Layout.fillWidth: true }
                     TfCheck {
                         id: anonymous
+                        Layout.fillWidth: true
+                        wrapWidth: width
                         text: qsTr("Accept anonymous messages (e.g. questions about my work or projects)")
                         onToggled: value => anonymous.checked = value
+                    }
+                    TfCheck {
+                        id: emailUpdates
+                        Layout.fillWidth: true
+                        wrapWidth: width
+                        checked: true
+                        text: qsTr("Email me about decisions on my applications, invitations and team changes")
+                        onToggled: value => emailUpdates.checked = value
                     }
                     TfText {
                         visible: profile.error !== ""
@@ -170,10 +174,11 @@ Item {
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
-                    RowLayout {
+                    // right-aligned, wrapping on narrow screens
+                    Flow {
                         Layout.fillWidth: true
-                        Item { Layout.fillWidth: true }
-                        TfButton { visible: !Hub.browser; text: qsTr("Sign out of the server"); compact: true; variant: "ghost"; onClicked: Hub.signOut() }
+                        layoutDirection: Qt.RightToLeft
+                        spacing: 8
                         TfButton {
                             text: profile.saving ? qsTr("Saving…") : qsTr("Save profile")
                             variant: "primary"
@@ -186,14 +191,22 @@ Item {
                                 profile.error = ""
                                 Hub.post("/profile", {
                                     name: name.text, headline: headline.text, bio: bio.text, skills: skills.text, experience: experience.text,
-                                    interests: interests.text, avatar: profile.avatar, color: profile.color, acceptsAnonymous: anonymous.checked
+                                    interests: interests.text, avatar: profile.avatar, color: profile.color, acceptsAnonymous: anonymous.checked,
+                                    emailUpdates: emailUpdates.checked, program: profile.program
                                 }, (code, data) => {
                                     profile.saving = false
-                                    if (code === 200) { profile.suggested = false; profile.notify(qsTr("Profile saved")) }
+                                    if (code === 200) {
+                                        profile.suggested = false
+                                        profile.fill(data.profile)
+                                        photoPicker.pending = ""
+                                        photoPicker.removedPending = false
+                                        profile.notify(qsTr("Profile saved"))
+                                    }
                                     else profile.error = data.error ?? qsTr("The profile could not be saved.")
                                 })
                             }
                         }
+                        TfButton { visible: !Hub.browser; text: qsTr("Sign out of the server"); compact: true; variant: "ghost"; onClicked: Hub.signOut() }
                     }
                 }
             }

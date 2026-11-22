@@ -67,3 +67,7 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Local development: emails written by EMAIL_PROVIDER=outbox, Python caches
+Phase-2/web/outbox/
+__pycache__/

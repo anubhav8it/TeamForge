@@ -52,3 +52,14 @@ html, body.app-page { height: 100%; overflow: hidden; }
   .progress span { animation: none; left: 30%; }
   .overlay-card { animation: none; }
 }
+
+/* Phones and narrow windows: the app lays itself out for the width (ui/Main.qml, phone mode),
+   so it gets exactly the space there is; the bar keeps only what fits. */
+@media (max-width: 760px) {
+  .app-screen { min-width: 0; min-height: 0; }
+  .app-scroll { overflow: hidden; }
+  .app-bar { gap: 6px; padding: 0 8px; }
+  .app-bar .app-name, .app-bar .sync, .app-bar .who { display: none; }
+  .app-bar .btn-ghost { padding: 5px 10px; font-size: 13px; }
+  .notice { font-size: 13px; padding: 8px 10px; }
+}

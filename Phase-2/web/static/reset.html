@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge – Choose a new password</title>
+<meta name="theme-color" content="#0B0F1A">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body class="has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
+<main class="auth-page single">
+  <div class="auth-card">
+    <img class="auth-logo show" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <section class="panel glass" data-spotlight>
+      <div class="panel-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      </div>
+      <h1 class="panel-title" id="reset-title">Choose a new password</h1>
+      <p class="panel-sub" id="reset-sub">Use at least 8 characters. After this you sign in with the new password on every device.</p>
+      <div id="message" class="message hidden" role="alert"></div>
+      <form id="form-reset" novalidate>
+        <label class="field"><span>New password</span>
+          <span class="password-wrap">
+          <input type="password" name="password" id="reset-password" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="reveal" data-reveal-for="reset-password" aria-label="Show password"></button></span></label>
+        <label class="field"><span>Confirm new password</span>
+          <span class="password-wrap">
+          <input type="password" name="confirm" id="reset-confirm" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="reveal" data-reveal-for="reset-confirm" aria-label="Show password"></button></span></label>
+        <button class="btn btn-primary" type="submit">Save new password</button>
+      </form>
+      <p class="form-foot"><a class="link" href="/login">← Back to sign in</a> · <a class="link" href="/forgot">Ask for a new link</a></p>
+    </section>
+  </div>
+</main>
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
+<script src="/static/js/password.js"></script>
+<script src="/static/js/account.js"></script>
+</body>
+</html>

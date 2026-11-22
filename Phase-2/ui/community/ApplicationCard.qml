@@ -138,9 +138,12 @@ Surface {
             }
         }
 
-        RowLayout {
+        // Actions: one line on wide cards, wrapping onto a second line on phones.
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 8
+            columns: card.width < 520 ? 3 : 8
+            columnSpacing: 8
+            rowSpacing: 8
             TfButton {
                 visible: card.reviewer
                 text: card.expanded ? qsTr("Show less") : qsTr("Read all")
@@ -162,7 +165,7 @@ Surface {
                 variant: "ghost"
                 onClicked: card.openTarget(card.application.link)
             }
-            Item { Layout.fillWidth: true }
+            Item { Layout.fillWidth: true; visible: card.width >= 520 }
             Repeater {
                 model: card.actions
                 delegate: TfButton {

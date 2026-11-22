@@ -20,7 +20,8 @@ Item {
     property bool openOnly: false
     property bool mineOnly: false
     readonly property bool organiser: Hub.summary.canOrganize ?? false
-    readonly property int columns: width > 1250 ? 3 : 2
+    readonly property int columns: width > 1250 ? 3 : width > 720 ? 2 : 1
+    readonly property bool narrow: width < 720
 
     function load(page) {
         loading = true
@@ -36,14 +37,18 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        anchors.topMargin: 18
+        anchors.margins: events.narrow ? 14 : 24
+        anchors.topMargin: events.narrow ? 14 : 18
         spacing: Theme.gap
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 10
+            columns: events.narrow ? 2 : 5
+            columnSpacing: 10
+            rowSpacing: 10
             TfTextField {
+                Layout.columnSpan: events.narrow ? 2 : 1
+                Layout.fillWidth: events.narrow
                 placeholderText: qsTr("Search events or skills")
                 Layout.preferredWidth: 320
                 onTextChanged: { events.query = text.trim(); searchDelay.restart() }
@@ -71,7 +76,7 @@ Item {
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: { events.mineOnly = !events.mineOnly; events.load(1) } }
             }
-            Item { Layout.fillWidth: true }
+            Item { Layout.fillWidth: true; visible: !events.narrow }
         }
 
         HubSkeleton { visible: events.loading && events.result.items.length === 0; rows: 3; rowHeight: 150; Layout.fillWidth: true }

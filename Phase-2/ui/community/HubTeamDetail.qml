@@ -17,6 +17,8 @@ Item {
     signal navigate(string route)
     signal notify(string message)
 
+    readonly property bool narrow: width < 720
+    readonly property int margin: narrow ? 14 : 24
     property var team: null
     property bool loading: true
     property string error: ""
@@ -126,8 +128,8 @@ Item {
             // ------------------------------------------------------------ header
             Surface {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.topMargin: 18
                 implicitHeight: header.implicitHeight + 40
                 radius: Theme.radius
@@ -143,7 +145,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 14
-                        HubAvatar { person: ({ name: detail.team ? detail.team.name : "", color: Theme.avatarColor(detail.team ? detail.team.name : "") }); size: 60 }
+                        TeamAvatar { name: detail.team ? detail.team.name : ""; size: 60 }
                         ColumnLayout {
                             spacing: 2
                             Layout.fillWidth: true
@@ -169,6 +171,7 @@ Item {
                             }
                         }
                         Chip {
+                            visible: !detail.narrow
                             text: detail.team && detail.team.full ? qsTr("Full") : detail.team && detail.team.recruiting ? qsTr("Recruiting") : qsTr("Not recruiting")
                             tone: detail.team && !detail.team.full && detail.team.recruiting ? "success" : "muted"
                             large: true
@@ -254,21 +257,25 @@ Item {
             }
 
             // ------------------------------------------------------------ tabs
+            ScrollRow {
+                Layout.fillWidth: true
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
             Segmented {
-                Layout.leftMargin: 24
                 options: [{ text: qsTr("Overview"), value: "overview" }, { text: qsTr("Members  %1").arg(detail.team ? detail.team.memberCount : 0), value: "members" }]
                          .concat(detail.team && detail.team.canManage
                                  ? [{ text: qsTr("Applications  %1").arg(detail.team.pendingApplications ?? 0), value: "applications" }] : [])
                 currentValue: detail.currentTab
                 onActivated: value => detail.navigate("teams/" + detail.teamId + (value === "overview" ? "" : "/" + value))
             }
+            }
 
             // ------------------------------------------------------------ overview
             GridLayout {
                 visible: detail.currentTab === "overview"
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.bottomMargin: 24
                 columns: detail.width > 1000 ? 2 : 1
                 columnSpacing: Theme.gap
@@ -337,8 +344,8 @@ Item {
             ColumnLayout {
                 visible: detail.currentTab === "members"
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.bottomMargin: 24
                 spacing: 8
                 Repeater {
@@ -347,15 +354,21 @@ Item {
                         id: memberRow
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 68
+                        implicitHeight: memberGrid.implicitHeight + 24
                         radius: Theme.radius
                         color: Theme.surface
                         border.color: Theme.border
-                        RowLayout {
-                            anchors.fill: parent
+                        // On phones the actions wrap onto a second line.
+                        GridLayout {
+                            id: memberGrid
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.leftMargin: 14
                             anchors.rightMargin: 12
-                            spacing: 12
+                            columns: detail.narrow ? 3 : 7
+                            columnSpacing: 12
+                            rowSpacing: 8
                             HubAvatar {
                                 person: memberRow.modelData
                                 size: 42
@@ -374,37 +387,45 @@ Item {
                                 }
                             }
                             HubStatus { status: memberRow.modelData.teamRole }
-                            TfButton {
-                                visible: Hub.canChangeRoles(detail.myRole) && memberRow.modelData.teamRole !== "leader"
-                                text: memberRow.modelData.teamRole === "admin" ? qsTr("Make member") : qsTr("Make admin")
-                                compact: true
-                                variant: "ghost"
-                                onClicked: detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/role",
-                                                      { role: memberRow.modelData.teamRole === "admin" ? "member" : "admin" }, qsTr("Role changed"))
-                            }
-                            TfButton {
-                                visible: Hub.canChangeRoles(detail.myRole) && memberRow.modelData.teamRole !== "leader"
-                                text: qsTr("Make leader")
-                                compact: true
-                                variant: "ghost"
-                                onClicked: {
-                                    confirm.pendingAction = () => detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/role",
-                                                                     { role: "leader" }, qsTr("%1 is now the leader").arg(memberRow.modelData.name))
-                                    confirm.ask(qsTr("Hand leadership to %1?").arg(memberRow.modelData.name),
-                                                qsTr("You stay in the team as an admin."), qsTr("Make leader"))
+                            Flow {
+                                spacing: 6
+                                // may wrap narrower than all its buttons in a row
+                                Layout.fillWidth: detail.narrow
+                                Layout.minimumWidth: 0
+                                Layout.columnSpan: detail.narrow ? 3 : 1
+                                Layout.alignment: Qt.AlignVCenter
+                                TfButton {
+                                    visible: Hub.canChangeRoles(detail.myRole) && memberRow.modelData.teamRole !== "leader"
+                                    text: memberRow.modelData.teamRole === "admin" ? qsTr("Make member") : qsTr("Make admin")
+                                    compact: true
+                                    variant: "ghost"
+                                    onClicked: detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/role",
+                                                          { role: memberRow.modelData.teamRole === "admin" ? "member" : "admin" }, qsTr("Role changed"))
                                 }
-                            }
-                            TfButton {
-                                visible: detail.myRole !== "" && memberRow.modelData.id !== (Hub.profile.id ?? -1)
-                                         && Hub.canRemoveMember(detail.myRole, memberRow.modelData.teamRole)
-                                text: qsTr("Remove")
-                                compact: true
-                                variant: "danger"
-                                onClicked: {
-                                    confirm.pendingAction = () => detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/remove", {},
-                                                                     qsTr("%1 was removed").arg(memberRow.modelData.name))
-                                    confirm.ask(qsTr("Remove %1?").arg(memberRow.modelData.name),
-                                                qsTr("They lose access to the team chat."), qsTr("Remove"))
+                                TfButton {
+                                    visible: Hub.canChangeRoles(detail.myRole) && memberRow.modelData.teamRole !== "leader"
+                                    text: qsTr("Make leader")
+                                    compact: true
+                                    variant: "ghost"
+                                    onClicked: {
+                                        confirm.pendingAction = () => detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/role",
+                                                                         { role: "leader" }, qsTr("%1 is now the leader").arg(memberRow.modelData.name))
+                                        confirm.ask(qsTr("Hand leadership to %1?").arg(memberRow.modelData.name),
+                                                    qsTr("You stay in the team as an admin."), qsTr("Make leader"))
+                                    }
+                                }
+                                TfButton {
+                                    visible: detail.myRole !== "" && memberRow.modelData.id !== (Hub.profile.id ?? -1)
+                                             && Hub.canRemoveMember(detail.myRole, memberRow.modelData.teamRole)
+                                    text: qsTr("Remove")
+                                    compact: true
+                                    variant: "danger"
+                                    onClicked: {
+                                        confirm.pendingAction = () => detail.act("/teams/" + detail.teamId + "/members/" + memberRow.modelData.id + "/remove", {},
+                                                                         qsTr("%1 was removed").arg(memberRow.modelData.name))
+                                        confirm.ask(qsTr("Remove %1?").arg(memberRow.modelData.name),
+                                                    qsTr("They lose access to the team chat."), qsTr("Remove"))
+                                    }
                                 }
                             }
                         }
@@ -416,16 +437,19 @@ Item {
             ColumnLayout {
                 visible: detail.currentTab === "applications"
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.bottomMargin: 24
                 spacing: 10
+                ScrollRow {
+                    Layout.fillWidth: true
                 Segmented {
                     options: [{ text: qsTr("Pending"), value: "pending" }, { text: qsTr("Approved"), value: "approved" },
                               { text: qsTr("Rejected"), value: "rejected" }, { text: qsTr("Withdrawn"), value: "withdrawn" },
                               { text: qsTr("All"), value: "" }]
                     currentValue: detail.appStatus
                     onActivated: value => { detail.appStatus = value; detail.loadApps(1) }
+                }
                 }
                 HubSkeleton { visible: detail.appsLoading && detail.apps.items.length === 0; rows: 2; Layout.fillWidth: true }
                 EmptyState {

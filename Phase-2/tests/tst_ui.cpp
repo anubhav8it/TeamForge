@@ -638,7 +638,8 @@ void TestUi::photoResumeAsksBeforeReading()
     QQuickItem *read = itemWithText("Read the text");
     QVERIFY(read && read->isVisible());
     QTest::mouseClick(window_, Qt::LeftButton, {}, read->mapToScene(QPointF(read->width() / 2, read->height() / 2)).toPoint());
-    QTRY_COMPARE(sent, 1);
+    // The picture is checked on a worker thread first: allow for a slow (cold) first run.
+    QTRY_COMPARE_WITH_TIMEOUT(sent, 1, 15000);
     QCOMPARE(sentType, QStringLiteral("image/jpeg"));
     QTRY_VERIFY(anyVisibleText("Reading the text (Azure AI)"));
 

@@ -20,6 +20,24 @@ TfPage {
     readonly property string itemId: parts.length > 1 ? decodeURIComponent(parts[1]) : ""
     readonly property string sub: parts.length > 2 ? parts[2] : ""
     readonly property bool applyRequested: Hub.route.indexOf("apply=1") >= 0
+    // The id each detail page shows, changed only while its own section is open, so a page that
+    // is closing never receives the next section's id.
+    property string teamItem: ""
+    property string eventItem: ""
+    property string threadItem: ""
+    function remember() {
+        // read the route itself: the derived properties may not be updated yet at this point
+        const split = Hub.route.split("?")[0].split("/")
+        const id = split.length > 1 ? decodeURIComponent(split[1]) : ""
+        if (split[0] === "teams") teamItem = id
+        else if (split[0] === "events") eventItem = id
+        else if (split[0] === "anonymous") threadItem = id
+    }
+    Connections {
+        target: Hub
+        function onRouteChanged() { page.remember() }
+    }
+    Component.onCompleted: remember()
 
     readonly property var tabs: [
         { key: "home", text: qsTr("Home"), count: 0 },
@@ -116,20 +134,25 @@ TfPage {
         Rectangle {
             visible: Hub.connected && Hub.needsProfile && page.section !== "profile"
             Layout.fillWidth: true
-            Layout.leftMargin: 24
-            Layout.rightMargin: 24
+            Layout.leftMargin: page.width < 720 ? 12 : 24
+            Layout.rightMargin: page.width < 720 ? 12 : 24
             Layout.topMargin: 14
-            implicitHeight: 52
+            implicitHeight: reminderRow.implicitHeight + 16
             radius: Theme.radiusSmall
             color: Theme.warningSubtle
             border.color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.45)
             RowLayout {
-                anchors.fill: parent
+                id: reminderRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 14
                 anchors.rightMargin: 8
                 TfText {
                     text: qsTr("Set up your Community profile so team leaders and organisers know who you are.")
                     color: "#FFE5BD"
+                    wrapMode: Text.WordWrap
+                    elide: Text.ElideNone
                     Layout.fillWidth: true
                 }
                 TfButton { text: qsTr("Set up profile"); compact: true; onClicked: page.go("profile") }
@@ -168,7 +191,8 @@ TfPage {
     Component {
         id: messagesPage
         HubMessages {
-            teamId: page.itemId !== "" ? Number(page.itemId) : 0
+            // only while Messages is open: the next section's id must not reach this page
+            teamId: page.section === "messages" && page.itemId !== "" ? Number(page.itemId) : 0
             pageActive: page.active
             onNavigate: route => page.go(route)
             onNotify: m => page.notify(m)
@@ -178,7 +202,7 @@ TfPage {
     Component {
         id: teamPage
         HubTeamDetail {
-            teamId: Number(page.itemId)
+            teamId: Number(page.teamItem)
             tab: page.sub
             applyRequested: page.applyRequested
             onNavigate: route => page.go(route)
@@ -189,7 +213,7 @@ TfPage {
     Component {
         id: eventPage
         HubEventDetail {
-            eventId: page.itemId
+            eventId: page.eventItem
             tab: page.sub
             applyRequested: page.applyRequested
             onNavigate: route => page.go(route)
@@ -200,7 +224,7 @@ TfPage {
     Component {
         id: anonymousPage
         HubAnonymous {
-            threadId: page.itemId
+            threadId: page.threadItem
             onNavigate: route => page.go(route)
             onNotify: m => page.notify(m)
         }

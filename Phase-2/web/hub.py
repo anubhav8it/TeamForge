@@ -18,6 +18,11 @@ How this fits the existing TeamForge data:
   teams.json stays what it is: the Host workspace's planning drafts, built by the matching engine
   from participant profile records (which are not accounts).
 * Notifications are new: TeamForge had none (the app's toasts are local to one screen).
+* One identity per account: the `profiles` row (name, academic details, photo, colour) is what
+  every screen shows for that person. It is linked to the participant profile the account uses
+  in the app (`student_id`, from the account's session.json), so the app can show the same photo
+  wherever that participant appears. Photos live in their own table and profiles carry only a
+  reference (`/api/hub/photos/<user id>?v=<version>`); a new photo replaces the old one in place.
 
 Errors are {"error": "..."} with an HTTP status, like the rest of the server's API.
 """
@@ -184,6 +189,19 @@ def _is_unique_violation(error: Exception) -> bool:
 
 # --------------------------------------------------------------------------- schema
 
+def _columns(db, table: str) -> set[str]:
+    if db.is_pg:
+        rows = db.all("SELECT column_name FROM information_schema.columns WHERE table_name = ?", (table,))
+        return {r[0] for r in rows}
+    return {r[1] for r in db.all(f"PRAGMA table_info({table})")}
+
+
+def ensure_column(db, table: str, column: str, ddl: str) -> None:
+    """Adds a column to an existing table (a migration that keeps every row)."""
+    if column not in _columns(db, table):
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+
 def create_schema(db) -> None:
     """The hub's tables. CREATE ... IF NOT EXISTS only: existing tables and data are kept."""
     pk = "SERIAL PRIMARY KEY" if db.is_pg else "INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -272,15 +290,27 @@ def create_schema(db) -> None:
             ref_key TEXT, read_at {real}, created_at {real} NOT NULL)""",
         "CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, id)",
         "CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, read_at)",
+        # Profile photos, one per account (small, already resized by the app), kept out of the
+        # profile rows that every list reads.
+        f"""CREATE TABLE IF NOT EXISTS profile_photos (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            content_type TEXT NOT NULL, data TEXT NOT NULL, version INTEGER NOT NULL,
+            updated_at {real} NOT NULL)""",
     ]
     for sql in statements:
         db.execute(sql)
+    # Added after the first release; existing rows keep their data.
+    ensure_column(db, "profiles", "student_id", "TEXT")
+    ensure_column(db, "profiles", "program", "TEXT NOT NULL DEFAULT ''")
+    ensure_column(db, "profiles", "email_updates", "INTEGER NOT NULL DEFAULT 1")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_profiles_student ON profiles (student_id)")
 
 
 # Parents before children, for web/tools/copy_database.py.
 HUB_TABLES = {
     "profiles": ["user_id", "display_name", "headline", "bio", "skills", "experience", "interests", "avatar",
-                 "color", "accepts_anonymous", "updated_at"],
+                 "color", "accepts_anonymous", "updated_at", "student_id", "program", "email_updates"],
+    "profile_photos": ["user_id", "content_type", "data", "version", "updated_at"],
     "teams": ["id", "name", "name_key", "tagline", "description", "objectives", "open_roles", "skills", "event_id",
               "recruiting", "max_members", "created_by", "created_at", "updated_at"],
     "team_members": ["team_id", "user_id", "role", "joined_at", "last_read_id"],
@@ -301,7 +331,9 @@ HUB_TABLES = {
 }
 
 _PROFILE_SELECT = ("SELECT u.id, u.role, p.display_name, p.headline, p.bio, p.skills, p.experience, p.interests, "
-                   "p.avatar, p.color, p.accepts_anonymous FROM users u LEFT JOIN profiles p ON p.user_id = u.id")
+                   "p.avatar, p.color, p.accepts_anonymous, p.student_id, p.program, p.email_updates "
+                   "FROM users u LEFT JOIN profiles p ON p.user_id = u.id")
+PHOTO_PREFIX = "/api/hub/photos/"
 
 
 def _marks(values) -> str:
@@ -322,6 +354,8 @@ class Hub:
             "anon_reply": rate_limit(30, 3600),
             "report": rate_limit(10, 3600),
         }
+        # Set by the server: mailer(user_id, kind, context) sends an email (web/email_service.py).
+        self.mailer = None
         self.chat = threading.Condition()
         self.latest_message: dict[int, int] = {}
         self._events_cache = (None, {})
@@ -331,6 +365,11 @@ class Hub:
             ("POST", r"/profile", "save_my_profile"),
             ("GET", r"/people", "list_people"),
             ("GET", r"/people/(\d+)", "get_person"),
+            ("GET", r"/identities", "identities"),
+            ("GET", r"/photos/(\d+)", "get_photo"),
+            ("POST", r"/profile/photo", "set_photo"),
+            ("POST", r"/profile/photo/remove", "remove_photo"),
+            ("POST", r"/profile/sync", "sync_identity"),
             ("GET", r"/teams", "list_teams"),
             ("POST", r"/teams", "create_team"),
             ("GET", r"/teams/(\d+)", "get_team"),
@@ -396,14 +435,19 @@ class Hub:
 
     # ------------------------------------------------------------------ profiles
     def _profile_from_row(self, row, full: bool = False) -> dict:
-        uid, role, name, headline, bio, skills, experience, interests, avatar, color, accepts = row
+        (uid, role, name, headline, bio, skills, experience, interests, avatar, color, accepts, student_id, program,
+         email_updates) = row
         profile = {
-            "id": uid, "name": name or "New member", "headline": headline or "", "avatar": avatar,
+            "id": uid, "name": name or "New member", "headline": headline or "",
+            # a reference to the photo (fetched separately and cached by the app), never the image
+            "avatar": avatar if avatar and avatar.startswith(PHOTO_PREFIX) else None,
             "color": color or AVATAR_COLORS[uid % len(AVATAR_COLORS)], "role": ROLE_LABELS.get(role, "Participant"),
+            "studentId": student_id or "",
         }
         if full:
             profile.update({"bio": bio or "", "skills": _loads(skills, []), "experience": experience or "",
-                            "interests": interests or "", "acceptsAnonymous": bool(accepts)})
+                            "interests": interests or "", "acceptsAnonymous": bool(accepts), "program": program or "",
+                            "emailUpdates": email_updates is None or bool(email_updates)})
         return profile
 
     def profiles(self, ids, full: bool = False) -> dict[int, dict]:
@@ -426,17 +470,10 @@ class Hub:
                            code="profile_needed")
 
     def _linked_student(self, user_id) -> dict | None:
-        """The participant profile this account picked in the app (session.json myProfileId), used
-        only to suggest profile details; nothing is copied without the person saving it."""
+        """The participant profile this account uses in the app, used to suggest profile details."""
         own = self.db.one("SELECT content FROM user_files WHERE user_id = ? AND name = 'session.json'", (user_id,))
         student_id = _loads(own[0], {}).get("myProfileId") if own else None
-        if not student_id:
-            return None
-        row = self.db.one("SELECT content FROM shared_files WHERE name = 'students.json'")
-        for student in _loads(row[0], {}).get("students", []) if row else []:
-            if isinstance(student, dict) and student.get("id") == student_id:
-                return student
-        return None
+        return self._student(student_id) if student_id else None
 
     def get_my_profile(self, user, q, body):
         found = self.profiles([user["id"]], full=True).get(user["id"])
@@ -455,6 +492,8 @@ class Hub:
 
     def save_my_profile(self, user, q, body):
         name = clean_text(body.get("name"), "Name", 60, required=True, multiline=False)
+        avatar = body.get("avatar")
+        new_photo = clean_avatar(avatar) if isinstance(avatar, str) and avatar.startswith("data:") else None
         values = (
             name,
             clean_text(body.get("headline"), "Headline", 120, multiline=False),
@@ -462,21 +501,144 @@ class Hub:
             json.dumps(clean_list(body.get("skills"), "Skills", 20)),
             clean_text(body.get("experience"), "Experience", MAX_LONG_TEXT),
             clean_text(body.get("interests"), "Interests", 1000),
-            clean_avatar(body.get("avatar")),
             body.get("color") if body.get("color") in AVATAR_COLORS else "",
             1 if clean_bool(body.get("acceptsAnonymous")) else 0,
+            clean_text(body.get("program"), "Academic details", 120, multiline=False),
+            0 if body.get("emailUpdates") is False else 1,
             now(),
         )
-        self.db.execute(
-            """INSERT INTO profiles (display_name, headline, bio, skills, experience, interests, avatar, color,
-                   accepts_anonymous, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT (user_id) DO UPDATE SET display_name = excluded.display_name,
-                   headline = excluded.headline, bio = excluded.bio, skills = excluded.skills,
-                   experience = excluded.experience, interests = excluded.interests, avatar = excluded.avatar,
-                   color = excluded.color, accepts_anonymous = excluded.accepts_anonymous,
-                   updated_at = excluded.updated_at""",
-            values + (user["id"],))
+        with self.db.transaction():
+            self.db.execute(
+                """INSERT INTO profiles (display_name, headline, bio, skills, experience, interests, color,
+                       accepts_anonymous, program, email_updates, updated_at, user_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (user_id) DO UPDATE SET display_name = excluded.display_name,
+                       headline = excluded.headline, bio = excluded.bio, skills = excluded.skills,
+                       experience = excluded.experience, interests = excluded.interests,
+                       color = excluded.color, accepts_anonymous = excluded.accepts_anonymous,
+                       program = excluded.program, email_updates = excluded.email_updates,
+                       updated_at = excluded.updated_at""",
+                values + (user["id"],))
+            # The photo: a new picture replaces the old one; empty removes it; the current
+            # reference (or nothing said) keeps it.
+            if new_photo:
+                self._store_photo(user["id"], new_photo)
+            elif "avatar" in body and not avatar:
+                self._drop_photo(user["id"])
         return {"profile": self.profile(user["id"], full=True)}
+
+    # ------------------------------------------------------------------ photos and identity
+    def _ensure_profile_row(self, user_id):
+        self.db.execute("INSERT INTO profiles (user_id, updated_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",
+                        (user_id, now()))
+
+    def _store_photo(self, user_id, data_url: str) -> str:
+        kind, data = data_url[len("data:"):].split(";base64,", 1)
+        with self.db.transaction():
+            self._ensure_profile_row(user_id)
+            row = self.db.one("SELECT version FROM profile_photos WHERE user_id = ?", (user_id,))
+            version = (row[0] if row else 0) + 1
+            self.db.execute(
+                """INSERT INTO profile_photos (user_id, content_type, data, version, updated_at) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT (user_id) DO UPDATE SET content_type = excluded.content_type, data = excluded.data,
+                       version = excluded.version, updated_at = excluded.updated_at""",
+                (user_id, kind, data, version, now()))
+            ref = f"{PHOTO_PREFIX}{user_id}?v={version}"
+            self.db.execute("UPDATE profiles SET avatar = ?, updated_at = ? WHERE user_id = ?", (ref, now(), user_id))
+        return ref
+
+    def _drop_photo(self, user_id):
+        with self.db.transaction():
+            self.db.execute("DELETE FROM profile_photos WHERE user_id = ?", (user_id,))
+            self.db.execute("UPDATE profiles SET avatar = NULL, updated_at = ? WHERE user_id = ?", (now(), user_id))
+
+    def set_photo(self, user, q, body):
+        image = body.get("image")
+        if not image:
+            raise HubError(400, "Choose a picture.")
+        ref = self._store_photo(user["id"], clean_avatar(image))
+        return {"avatar": ref, "profile": self.profile(user["id"], full=True)}
+
+    def remove_photo(self, user, q, body):
+        self._drop_photo(user["id"])
+        return {"avatar": None, "profile": self.profile(user["id"], full=True)}
+
+    def get_photo(self, user, user_id, q, body):
+        row = self.db.one("SELECT content_type, data, version FROM profile_photos WHERE user_id = ?", (int(user_id),))
+        if row is None:
+            raise HubError(404, "No photo.")
+        return {"image": f"data:{row[0]};base64,{row[1]}", "version": row[2]}
+
+    def link_student(self, user_id, student_id) -> None:
+        """Links the account to the participant profile it uses in the app (from session.json).
+        A profile belongs to one account: the latest to choose it. An account without a name yet
+        takes the participant profile's name, academic details and summary."""
+        student_id = str(student_id or "").strip()[:64]
+        with self.db.transaction():
+            self._ensure_profile_row(user_id)
+            current = self.db.one("SELECT student_id FROM profiles WHERE user_id = ?", (user_id,))
+            if current and (current[0] or "") == student_id:
+                return
+            if student_id:
+                self.db.execute("UPDATE profiles SET student_id = NULL, updated_at = ? WHERE student_id = ? AND user_id <> ?",
+                                (now(), student_id, user_id))
+            self.db.execute("UPDATE profiles SET student_id = ?, updated_at = ? WHERE user_id = ?",
+                            (student_id or None, now(), user_id))
+            student = self._student(student_id) if student_id else None
+            named = self.db.one("SELECT display_name FROM profiles WHERE user_id = ?", (user_id,))
+            if student and named and not named[0]:
+                self.db.execute(
+                    "UPDATE profiles SET display_name = ?, program = ?, headline = ?, bio = ?, skills = ? WHERE user_id = ?",
+                    (str(student.get("name", ""))[:60], str(student.get("program", ""))[:120],
+                     str(student.get("role", ""))[:120], str(student.get("summary", ""))[:MAX_LONG_TEXT],
+                     json.dumps([str(s) for s in (student.get("skillsOffered") or {})][:20]), user_id))
+
+    def _student(self, student_id) -> dict | None:
+        row = self.db.one("SELECT content FROM shared_files WHERE name = 'students.json'")
+        for student in _loads(row[0], {}).get("students", []) if row else []:
+            if isinstance(student, dict) and student.get("id") == student_id:
+                return student
+        return None
+
+    def migrate(self) -> None:
+        """Brings existing data up to date, keeping it: photos stored inside profile rows move to
+        their own table, and accounts are linked to the participant profiles they chose."""
+        for user_id, avatar in self.db.all("SELECT user_id, avatar FROM profiles WHERE avatar LIKE 'data:%'"):
+            try:
+                self._store_photo(user_id, clean_avatar(avatar))
+            except HubError:
+                self.db.execute("UPDATE profiles SET avatar = NULL WHERE user_id = ?", (user_id,))
+        for user_id, content in self.db.all("SELECT user_id, content FROM user_files WHERE name = 'session.json'"):
+            student_id = _loads(content, {}).get("myProfileId")
+            linked = self.db.one("SELECT student_id FROM profiles WHERE user_id = ?", (user_id,))
+            if student_id and not (linked and linked[0]):
+                self.link_student(user_id, student_id)
+
+    def sync_identity(self, user, q, body):
+        """The app keeps the account's name and academic details in step with the participant
+        profile the person edits in TeamForge (one name everywhere)."""
+        name = clean_text(body.get("name"), "Name", 60, required=True, multiline=False)
+        program = clean_text(body.get("program"), "Academic details", 120, multiline=False)
+        with self.db.transaction():
+            self._ensure_profile_row(user["id"])
+            self.db.execute("UPDATE profiles SET display_name = ?, program = ?, updated_at = ? WHERE user_id = ?",
+                            (name, program, now(), user["id"]))
+            if "headline" in body:
+                self.db.execute("UPDATE profiles SET headline = ? WHERE user_id = ?",
+                                (clean_text(body.get("headline"), "Headline", 120, multiline=False), user["id"]))
+        if body.get("studentId"):
+            self.link_student(user["id"], body.get("studentId"))
+        return {"profile": self.profile(user["id"], full=True)}
+
+    def identity_version(self) -> str:
+        row = self.db.one("SELECT COUNT(*), MAX(updated_at) FROM profiles")
+        return f"{row[0]}:{row[1] or 0}"
+
+    def identities(self, user, q, body):
+        """Participant profile id -> the account identity using it (name, photo reference,
+        colour), so the app shows the same person the same way everywhere. No emails."""
+        rows = self.db.all(f"{_PROFILE_SELECT} WHERE p.student_id IS NOT NULL AND p.student_id <> ''")
+        return {"items": [self._profile_from_row(r) for r in rows], "version": self.identity_version()}
 
     def list_people(self, user, q, body):
         """People directory. ?anonymous=1 lists those who accept anonymous messages (developers,
@@ -519,6 +681,19 @@ class Hub:
         self.db.execute(
             """INSERT INTO notifications (user_id, kind, title, body, link, ref_key, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""", (user_id, kind, title[:160], body[:300], link, ref_key, now()))
+
+    def email(self, user_id, template: str, **context) -> None:
+        """Emails a person about something important (decisions, invitations, removal), unless
+        they turned email updates off. Never blocks the request; never in an API response."""
+        if self.mailer is None:
+            return
+        row = self.db.one("SELECT email_updates FROM profiles WHERE user_id = ?", (user_id,))
+        if row is not None and not row[0]:
+            return
+        try:
+            self.mailer(user_id, template, context)
+        except Exception:  # an email problem never breaks the action itself
+            pass
 
     def _unread_notifications(self, user_id) -> int:
         return self.db.one("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL", (user_id,))[0]
@@ -796,6 +971,7 @@ class Hub:
             raise HubError(403, "Only the team leader can remove an admin, and nobody can remove the leader.")
         self.db.execute("DELETE FROM team_members WHERE team_id = ? AND user_id = ?", (row[0], member_id))
         self.notify(member_id, "team_removed", f"You were removed from {row[1]}", "", "#/teams")
+        self.email(member_id, "team_notification", target=row[1], text=f"You were removed from the team {row[1]}.")
         return self.get_team(user, team_id, q={}, body={})
 
     # ------------------------------------------------------------------ team chat
@@ -1009,6 +1185,8 @@ class Hub:
             else:
                 self.notify(applicant, "team_application_rejected", f"Your application to {row[1]} was not accepted",
                             response, f"#/applications")
+        self.email(applicant, "application_decision", target=row[1], kind="team", approved=status == "approved",
+                   message=response)
         return {"application": {"id": int(app_id), "status": status, "response": response}}
 
     def withdraw_team_application(self, user, app_id, q, body):
@@ -1278,6 +1456,9 @@ class Hub:
             titles = {"approved": f"You're in: {name}", "rejected": f"Your application for {name} was not accepted",
                       "waitlisted": f"You're on the waitlist for {name}"}
             self.notify(applicant, f"event_application_{status}", titles[status], feedback, f"#/events/{event_id}")
+        if status in ("approved", "rejected"):
+            self.email(applicant, "application_decision", target=name, kind="event", approved=status == "approved",
+                       message=feedback)
         return {"application": {"id": int(app_id), "status": status, "feedback": feedback}}
 
     def withdraw_event_application(self, user, app_id, q, body):
@@ -1373,6 +1554,7 @@ class Hub:
         inbox = self._anon_inbox_rows(user)
         return {
             "profile": own["profile"], "needsSetup": own["needsSetup"], "canOrganize": user["role"] in ("host", "admin"),
+            "identityVersion": self.identity_version(),
             "isAdmin": user["role"] == "admin",
             "unreadNotifications": self._unread_notifications(user["id"]),
             "unreadMessages": sum(self._unread_messages(user["id"]).values()),
@@ -1592,6 +1774,7 @@ class Hub:
         self.notify(row[2], "invitation", f"You're invited to apply to {target['name']}",
                     "They read your anonymous message and would like your application. Applying shows them your profile.",
                     link)
+        self.email(row[2], "invitation", target=target["name"], kind=row[3])
         return {"invited": True}
 
     def anon_report(self, user, public_id, q, body):

@@ -18,7 +18,8 @@ Item {
     property string query: ""
     property bool recruitingOnly: false
     property bool mineOnly: false
-    readonly property int columns: width > 1250 ? 3 : 2
+    readonly property int columns: width > 1250 ? 3 : width > 720 ? 2 : 1
+    readonly property bool narrow: width < 720
 
     function load(page) {
         loading = true
@@ -48,14 +49,18 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        anchors.topMargin: 18
+        anchors.margins: teams.narrow ? 14 : 24
+        anchors.topMargin: teams.narrow ? 14 : 18
         spacing: Theme.gap
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 10
+            columns: teams.narrow ? 2 : 5
+            columnSpacing: 10
+            rowSpacing: 10
             TfTextField {
+                Layout.columnSpan: teams.narrow ? 2 : 1
+                Layout.fillWidth: teams.narrow
                 placeholderText: qsTr("Search teams, skills or roles")
                 Layout.preferredWidth: 320
                 onTextChanged: { teams.query = text.trim(); searchDelay.restart() }
@@ -82,8 +87,15 @@ Item {
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
                 TapHandler { onTapped: { teams.mineOnly = !teams.mineOnly; teams.load(1) } }
             }
-            Item { Layout.fillWidth: true }
-            TfButton { text: qsTr("Create a team"); variant: "primary"; compact: true; onClicked: createForm.openFor(null) }
+            Item { Layout.fillWidth: true; visible: !teams.narrow }
+            TfButton {
+                text: qsTr("Create a team")
+                variant: "primary"
+                compact: true
+                Layout.columnSpan: teams.narrow ? 2 : 1
+                Layout.fillWidth: teams.narrow
+                onClicked: createForm.openFor(null)
+            }
         }
 
         HubSkeleton { visible: teams.loading && teams.result.items.length === 0; rows: 3; rowHeight: 150; Layout.fillWidth: true }

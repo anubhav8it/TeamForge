@@ -17,6 +17,8 @@ Item {
     readonly property var mine: s.myApplications ?? ({})
     readonly property var pending: s.pendingDecisions ?? ({})
     readonly property var teams: s.teams ?? []
+    readonly property bool narrow: width < 720
+    readonly property int margin: narrow ? 14 : 24
 
     ScrollView {
         anchors.fill: parent
@@ -30,12 +32,26 @@ Item {
             Item { implicitHeight: 4 }
 
             // ------------------------------------------------------------ greeting + actions
-            RowLayout {
+            Surface {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
-                spacing: 14
-                HubAvatar { person: Hub.profile; size: 52 }
+                Layout.leftMargin: home.margin
+                Layout.rightMargin: home.margin
+                implicitHeight: greeting.implicitHeight + (home.narrow ? 32 : 44)
+                radius: Theme.radiusLarge
+                tint: Theme.accent
+                clip: true
+                AmbientGlow { tone: Theme.accent; strength: 0.2; width: parent.width * 0.7; height: width; x: -width * 0.35; y: -height * 0.6 }
+                AmbientGlow { tone: Theme.violet; strength: 0.16; width: parent.width * 0.6; height: width; x: parent.width - width * 0.45; y: -height * 0.4 }
+            GridLayout {
+                id: greeting
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: home.narrow ? 16 : 22
+                columns: home.narrow ? 2 : 3
+                columnSpacing: 14
+                rowSpacing: 12
+                HubAvatar { person: Hub.profile; size: home.narrow ? 48 : 60 }
                 ColumnLayout {
                     spacing: 2
                     Layout.fillWidth: true
@@ -50,15 +66,21 @@ Item {
                         Layout.fillWidth: true
                     }
                 }
-                TfButton { text: qsTr("Find a team"); compact: true; onClicked: home.navigate("teams") }
-                TfButton { text: qsTr("Browse events"); compact: true; onClicked: home.navigate("events") }
+                Flow {
+                    spacing: 8
+                    Layout.columnSpan: home.narrow ? 2 : 1
+                    Layout.alignment: home.narrow ? Qt.AlignLeft : Qt.AlignRight | Qt.AlignVCenter
+                    TfButton { text: qsTr("Find a team"); variant: "primary"; compact: true; onClicked: home.navigate("teams") }
+                    TfButton { text: qsTr("Browse events"); compact: true; onClicked: home.navigate("events") }
+                }
+            }
             }
 
             // ------------------------------------------------------------ tiles
             GridLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: home.margin
+                Layout.rightMargin: home.margin
                 columns: home.width > 1000 ? 4 : 2
                 columnSpacing: Theme.gap
                 rowSpacing: Theme.gap
@@ -114,8 +136,8 @@ Item {
             // ------------------------------------------------------------ teams + notifications
             GridLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: home.margin
+                Layout.rightMargin: home.margin
                 Layout.bottomMargin: 24
                 columns: home.width > 1000 ? 2 : 1
                 columnSpacing: Theme.gap
@@ -159,7 +181,7 @@ Item {
                                     anchors.leftMargin: 10
                                     anchors.rightMargin: 10
                                     spacing: 10
-                                    HubAvatar { person: ({ name: teamRow.modelData.name, color: Theme.avatarColor(teamRow.modelData.name) }); size: 38 }
+                                    TeamAvatar { name: teamRow.modelData.name; size: 38 }
                                     ColumnLayout {
                                         spacing: 0
                                         Layout.fillWidth: true

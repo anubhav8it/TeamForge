@@ -93,22 +93,27 @@ Surface {
                     Layout.fillWidth: true
                 }
             }
+            // The match as a ring and a plain-language band (same thresholds as the colours), so
+            // the score reads at a glance; the score itself comes unchanged from the matching.
             ColumnLayout {
-                spacing: -4
+                spacing: 4
                 Layout.alignment: Qt.AlignTop
-                TfText {
-                    text: Theme.percent(card.score)
-                    font.pixelSize: card.compact ? 28 : 34
-                    font.weight: Font.ExtraBold
-                    font.letterSpacing: -0.8
-                    color: Theme.scoreColor(card.score)
-                    Layout.alignment: Qt.AlignRight
+                CoverageRing {
+                    size: card.compact ? 62 : 70
+                    lineWidth: 6
+                    value: card.score
+                    fillColor: Theme.scoreColor(card.score)
+                    caption: qsTr("match")
+                    Layout.alignment: Qt.AlignHCenter
+                    Accessible.role: Accessible.Indicator
+                    Accessible.name: qsTr("Match %1").arg(Theme.percent(card.score))
                 }
                 TfText {
-                    text: qsTr("match")
-                    variant: "muted"
-                    font.weight: Font.Bold
-                    Layout.alignment: Qt.AlignRight
+                    text: card.score >= 0.7 ? qsTr("Strong fit") : card.score >= 0.5 ? qsTr("Good fit") : qsTr("Partial fit")
+                    font.pixelSize: 12
+                    font.weight: Font.ExtraBold
+                    color: Theme.scoreColor(card.score)
+                    Layout.alignment: Qt.AlignHCenter
                 }
             }
         }
@@ -129,7 +134,7 @@ Surface {
             Layout.fillWidth: true
         }
 
-        RowLayout {
+        Flow {
             visible: !card.compact
             Layout.fillWidth: true
             Layout.topMargin: 2
@@ -161,7 +166,6 @@ Surface {
                 compact: true
                 onClicked: card.whyThisMatch(card.opportunity.id)
             }
-            Item { Layout.fillWidth: true }
         }
     }
 

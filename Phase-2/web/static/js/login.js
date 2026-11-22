@@ -34,6 +34,14 @@
   if (location.hash === "#register") select("register");
   const reason = new URLSearchParams(location.search).get("reason");
   if (reason === "expired") show("Your session ended. Please sign in again.", "info");
+  if (reason === "reset") show("Your password was changed. Sign in with your new password.", "info");
+  if (reason === "verified") show("Thanks, your email address is confirmed. Sign in to continue.", "info");
+  // Carry a typed email over to the Forgot password page.
+  const forgot = $("forgot-link");
+  if (forgot) forgot.addEventListener("click", () => {
+    const email = $("signin-email").value.trim();
+    if (email) forgot.href = "/forgot#" + encodeURIComponent(email);
+  });
 
   async function post(path, body) {
     const res = await fetch(path, {

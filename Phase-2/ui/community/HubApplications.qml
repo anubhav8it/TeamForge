@@ -21,6 +21,7 @@ Item {
     property string query: ""
     property var result: ({ items: [], page: 1, pages: 1, total: 0 })
     property bool loading: true
+    readonly property bool narrow: width < 720
 
     function load(page) {
         loading = true
@@ -52,26 +53,29 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        anchors.topMargin: 18
+        anchors.margins: apps.narrow ? 14 : 24
+        anchors.topMargin: apps.narrow ? 14 : 18
         spacing: 12
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 12
+            columns: apps.narrow ? 1 : 3
+            columnSpacing: 12
+            rowSpacing: 10
             Segmented {
                 options: [{ text: qsTr("To review  %1").arg(Hub.pendingDecisions), value: "received" }, { text: qsTr("My applications"), value: "mine" }]
                 currentValue: apps.view
                 onActivated: value => apps.view = value
             }
-            Item { Layout.fillWidth: true }
+            Item { Layout.fillWidth: true; visible: !apps.narrow }
             TfTextField {
                 placeholderText: apps.view === "received" ? qsTr("Search applicant, team or event") : qsTr("Search team or event")
                 Layout.preferredWidth: 280
+                Layout.fillWidth: apps.narrow
                 onTextChanged: { apps.query = text.trim(); searchDelay.restart() }
             }
         }
-        RowLayout {
+        ScrollRow {
             Layout.fillWidth: true
             spacing: 12
             Segmented {
@@ -85,7 +89,6 @@ Item {
                 currentValue: apps.status
                 onActivated: value => { apps.status = value; apps.load(1) }
             }
-            Item { Layout.fillWidth: true }
         }
 
         HubSkeleton { visible: apps.loading && apps.result.items.length === 0; rows: 3; rowHeight: 120; Layout.fillWidth: true }

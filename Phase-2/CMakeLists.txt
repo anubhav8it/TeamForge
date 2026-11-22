@@ -58,15 +58,21 @@ qt_add_qml_module(teamforge_ui
         ui/components/LevelPips.qml
         ui/components/LogoMark3D.qml
         ui/components/MeterBar.qml
+        ui/components/MobileBar.qml
+        ui/components/MobileTabBar.qml
         ui/components/MotivationQuote.qml
         ui/components/NavItem.qml
         ui/components/Panel.qml
+        ui/components/PhotoCropDialog.qml
+        ui/components/PhotoPicker.qml
+        ui/components/ScrollRow.qml
         ui/components/Segmented.qml
         ui/components/Sidebar.qml
         ui/components/SkillChips.qml
         ui/components/SkillField.qml
         ui/components/StatTile.qml
         ui/components/Surface.qml
+        ui/components/TeamAvatar.qml
         ui/components/TfButton.qml
         ui/components/TfCheck.qml
         ui/components/TfComboBox.qml

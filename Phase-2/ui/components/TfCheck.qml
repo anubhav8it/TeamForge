@@ -8,6 +8,8 @@ Row {
 
     property bool checked: false
     property string text
+    // When set (e.g. to the width a layout gives the check box), the label wraps to fit it.
+    property real wrapWidth: 0
     signal toggled(bool checked)
 
     spacing: 10
@@ -43,10 +45,14 @@ Row {
         }
     }
     TfText {
+        id: label
         visible: check.text !== ""
         anchors.verticalCenter: parent.verticalCenter
         text: check.text
         font.weight: Font.Bold
+        width: check.wrapWidth > 0 ? Math.min(implicitWidth, Math.max(40, check.wrapWidth - box.width - check.spacing)) : implicitWidth
+        wrapMode: check.wrapWidth > 0 ? Text.WordWrap : Text.NoWrap
+        elide: Text.ElideNone
     }
 
     HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
