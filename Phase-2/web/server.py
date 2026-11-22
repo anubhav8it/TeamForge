@@ -218,12 +218,18 @@ class Database:
     def _sql(self, sql: str) -> str:
         return sql.replace("?", "%s") if self.is_pg else sql
 
+    def _params(self, params):
+        # PostgreSQL (psycopg) reads every "%" in a query as a placeholder whenever a parameter list
+        # is passed, even an empty one, so a literal % (LIKE 'x%') failed there but not on SQLite.
+        # Without parameters, pass none at all.
+        return (params or None) if self.is_pg else params
+
     def _run(self, sql, params=(), fetch=None):
         with self.lock:
             for attempt in (1, 2):
                 try:
                     cur = self.conn.cursor()
-                    cur.execute(self._sql(sql), params)
+                    cur.execute(self._sql(sql), self._params(params))
                     if fetch == "one":
                         row = cur.fetchone()
                     elif fetch == "all":
@@ -258,7 +264,7 @@ class Database:
         with self.lock:
             cur = self.conn.cursor()
             if self.is_pg:
-                cur.execute(self._sql(sql) + " RETURNING id", params)
+                cur.execute(self._sql(sql) + " RETURNING id", self._params(params))
                 new_id = cur.fetchone()[0]
             else:
                 cur.execute(sql, params)

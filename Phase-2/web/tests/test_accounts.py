@@ -6,6 +6,9 @@ Run from the repository root:  python web/tests/test_accounts.py
 import base64, http.cookiejar, json, os, re, sqlite3, subprocess, sys, tempfile, threading, time, urllib.error, urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import testdb  # noqa: E402  (SQLite or PostgreSQL, like the server)
+
 WEB = str(Path(__file__).resolve().parent.parent)
 PORT = 8768
 BASE = f"http://127.0.0.1:{PORT}"
@@ -147,10 +150,10 @@ try:
     Client().req("POST", "/api/password/forgot", {"email": "asha@test.edu"})
     time.sleep(0.5)
     t2 = token_from(emails("password_reset", "asha@test.edu")[-1], "/reset")
-    con = sqlite3.connect(DB); con.execute("UPDATE auth_tokens SET expires_at = 1 WHERE purpose = 'reset'"); con.commit(); con.close()
+    con = testdb.connect(DB); con.execute("UPDATE auth_tokens SET expires_at = 1 WHERE purpose = 'reset'"); con.commit(); con.close()
     s, b = Client().req("POST", "/api/password/reset", {"token": t2, "password": "third-pass-3"})
     check("expired reset link refused", s == 400 and "expired" in b["error"], (s, b))
-    con = sqlite3.connect(DB)
+    con = testdb.connect(DB)
     stored = [r[0] for r in con.execute("SELECT token_hash FROM auth_tokens")]
     con.close()
     check("only token hashes are stored", t2 not in stored and all(len(h) == 64 for h in stored), stored)
@@ -211,7 +214,7 @@ check("server log has no tokens or email contents", (not rtoken or rtoken not in
       and "Traceback" not in log_text, log_text[-1500:])
 
 # ------------------------------------------------------------ migration of old in-row photos, email off
-con = sqlite3.connect(DB)
+con = testdb.connect(DB)
 con.execute("UPDATE profiles SET avatar = ? WHERE user_id = (SELECT id FROM users WHERE email = 'ravi@test.edu')", (PNG,))
 con.commit(); con.close()
 srv = start(email=False)

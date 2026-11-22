@@ -287,6 +287,10 @@ deadlines, capacity under simultaneous approvals, anonymity, rate limits, restar
 `tests/tst_hub` (core rules); `tests/tst_community` (the screens offscreen against a demo server:
 set `TEAMFORGE_TEST_SERVER`, optionally `TEAMFORGE_SHOTS` for screenshots);
 `node web/tests/test_appjs.mjs` (also `TF_hub`).
+The server suites run on SQLite by default; production uses PostgreSQL, which is stricter (a
+literal `%` in a query once stopped the server from starting there). Before deploying, run them
+on a real, temporary PostgreSQL: `python -m pip install --user pgserver`, then
+`python web/tests/run_on_postgres.py`.
 
 ### Team recruitment: Find members, invitations, invitation links, compatibility
 

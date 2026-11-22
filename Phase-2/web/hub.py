@@ -627,7 +627,7 @@ class Hub(RecruitmentMixin):
     def migrate(self) -> None:
         """Brings existing data up to date, keeping it: photos stored inside profile rows move to
         their own table, and accounts are linked to the participant profiles they chose."""
-        for user_id, avatar in self.db.all("SELECT user_id, avatar FROM profiles WHERE avatar LIKE 'data:%'"):
+        for user_id, avatar in self.db.all("SELECT user_id, avatar FROM profiles WHERE avatar LIKE ?", ("data:%",)):
             try:
                 self._store_photo(user_id, clean_avatar(avatar))
             except HubError:
