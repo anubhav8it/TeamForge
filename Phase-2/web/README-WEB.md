@@ -181,14 +181,77 @@ server (default 15; F0 allows 20). On F0, Azure reads only the first two pages o
   unless it is upgraded). Upgrade it, or create a new free database and set the new
   `DATABASE_URL`, before then. A new database starts again from the sample data with no accounts.
 
+## Community: teams, chat, applications, anonymous requests, notifications
+
+The **Community** page (Participant and Host workspaces, plus the bell in the top bar) adds the
+people side of TeamForge, with real accounts:
+
+| Feature | What it does |
+|---|---|
+| Teams | Anyone creates a team and becomes its leader. Leaders make members admins, hand over leadership, remove members, edit or delete the team. |
+| Team chat | Private to members. Chronological, older messages on request, new ones arrive live (long polling, below). Unread counts and a "New messages" line. |
+| Team applications | Introduction, skills, experience, interests, reason. Leaders and team admins approve (the person joins at once) or reject, with an optional message. Pending, approved, rejected, withdrawn. One pending application per team. |
+| Events | The app's projects (requirements.json). A host opens one for applications and becomes its organiser: description, requirements, eligibility, positions, number of places, deadline. Applicants pick a position; once the event is full new applications join the waitlist. Pending, approved, rejected, withdrawn, waitlisted. |
+| Anonymous requests | "Message anonymously" on a team (to its leaders), an event (to its organiser) or a person who accepts them. The recipient never sees who sent it; both sides can reply; the recipient marks it reviewed / interested / declined, invites the sender to apply, reports it or blocks the sender. |
+| Applications dashboard | "To review" (teams you run, events you organise) and "My applications", with type and status filters, search and pages. |
+| Notifications | New applications, decisions, invitations, anonymous messages and replies, team messages (one combined notification per chat), removal, role changes. Unread count, read/unread, links. |
+| Moderation | Admin page → *Reported anonymous conversations*: the sender's account is shown there only, with Block or Dismiss. |
+
+How it is built:
+
+* **Server (`web/hub.py`, routes under `/api/hub/`)**: relational tables (`profiles`, `teams`,
+  `team_members`, `team_messages`, `team_applications`, `event_settings`, `event_applications`,
+  `anon_threads`, `anon_messages`, `anon_reports`, `anon_blocks`, `notifications`), created with
+  `CREATE TABLE IF NOT EXISTS` next to the existing ones, so existing data is untouched.
+  **Every request is authorised on the server** against the signed-in account (membership for
+  chat, leader/team admin for team decisions, organiser or admin for events, recipient or sender
+  for anonymous conversations). Unlike the five JSON files, nothing here relies on the app's own
+  checks.
+* **Safety**: duplicate active applications are refused (checked inside a transaction, and by a
+  partial unique index). Decisions re-read the status inside a transaction and update only
+  `WHERE status = <expected>`, so two leaders approving at once give one approval and one refusal,
+  and approvals can never exceed an event's places. Text is cleaned and limited; profile pictures
+  are checked by their bytes (PNG/JPEG/WebP, at most 80 KB). Rate limits per account (chat 20 per
+  minute, applications 10 per hour, new anonymous conversations 5 per hour and 10 per day, one open
+  conversation per recipient). The in-memory limits reset when the server restarts; the daily
+  anonymous limit is kept in the database.
+* **Anonymity**: anonymous conversations have random ids, messages carry only a "from the sender"
+  flag, and recipient answers are built from explicit fields, never from the database row; the
+  tests check that no email, name or account id reaches the recipient. The sender's account is
+  stored (for the sender's own "Sent" list, limits, blocks and moderation) and the form says so.
+* **Live chat**: `GET /api/hub/teams/<id>/messages?after=<id>&wait=25` waits until a new message
+  arrives or 25 s pass (long polling with the standard library; no WebSocket server needed). It
+  works with one server process, as now; several processes would need a shared notifier.
+* **App (C++)**: rules in `src/core/Hub.h` (statuses and allowed moves, capacity and waitlist,
+  team roles, text cleaning, the chat log as an id-ordered structure, notifications), tested by
+  `tests/tst_hub`. `src/app/HubClient.h` is the QML singleton `Hub` and the chat model. The browser
+  build sends requests through the page (`window.TF_hub` in `app.js`, with the page's sign-in
+  cookie); the desktop build uses Qt Network and signs in on the Community page with an account
+  from the web page. Screens: `ui/community/`.
+
+Try it locally with demo data (five accounts, teams, chat, applications, an open event,
+anonymous requests; the shared demo password is printed):
+
+```powershell
+$env:PORT = "8000"; $env:ADMIN_EMAILS = "dev@demo.test"; python web\server.py
+python web	ools\demo_hub_data.py http://localhost:8000
+```
+
+Tests: `python web/tests/test_hub.py` (106 API checks: every endpoint, permissions, duplicates,
+deadlines, capacity under simultaneous approvals, anonymity, rate limits, restart);
+`tests/tst_hub` (core rules); `tests/tst_community` (the screens offscreen against a demo server:
+set `TEAMFORGE_TEST_SERVER`, optionally `TEAMFORGE_SHOTS` for screenshots);
+`node web/tests/test_appjs.mjs` (also `TF_hub`).
+
 ## Data and security notes
 
 * Passwords are stored only as PBKDF2-SHA256 hashes with a random salt. Sessions are random tokens
   in an HttpOnly cookie (Secure on HTTPS), valid 30 days. Repeated failed sign-ins are slowed down.
 * The server accepts each role's uploads only for the files that role's workspaces can change
   (participant: profiles and interest requests; host: also projects and teams; admin: everything).
-* The rules *inside* the data (for example "a participant edits only their own profile") are
-  enforced by the C++ app in the browser, as on the desktop. Someone who calls the API by hand
+* The rules *inside* the five JSON files (for example "a participant edits only their own
+  profile") are enforced by the C++ app in the browser, as on the desktop. (The Community's data
+  is different: the server checks every request, see above.) Someone who calls the API by hand
   could bypass them for the files their role may change. This is acceptable for a class demo; a
   production system would move those checks to the server.
 * Admin → **Reset shared data** reloads the sample data from `data/` (for example after running
@@ -204,15 +267,17 @@ server (default 15; F0 allows 20). On F0, Azure reads only the first two pages o
 ```
 web/
   server.py              accounts, data API, static files (Python standard library + psycopg)
+  hub.py                 Community: teams, chat, applications, anonymous requests, notifications
   requirements.txt       psycopg (only for PostgreSQL)
   static/login.html      sign-in / create account (browser can save the password)
-  static/admin.html      roles and data reset (admins)
+  static/admin.html      roles, reported anonymous conversations, data reset (admins)
   static/app/index.html  loads TeamForge; app.js = data sync; app.css
   static/app/TeamForge.{js,wasm}, qtloader.js   ← copied from build-wasm/
   static/css, js, fonts, img
   tools/copy-wasm.ps1 / copy-wasm.sh
   tools/precompress.py   gzip copies of the app files (run at build time)
   tools/copy_database.py copies accounts and data between databases (Render -> Azure)
+  tools/demo_hub_data.py demo Community data for a local server
   AZURE-DEPLOY.md        Azure Container Apps + PostgreSQL + own domain, step by step
 render.yaml              Render Blueprint (web service + Postgres, both free)
 Dockerfile, .dockerignore  the server image (Azure Container Apps; any Docker host)

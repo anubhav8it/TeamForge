@@ -8,7 +8,7 @@ import TeamForge
 // One project as an opportunity for the participant (a Backend.opportunities entry): name,
 // type, tagline, team size, key skills and match %. The main action is expressing interest;
 // once sent, the card shows where the request stands with the host.
-Rectangle {
+Surface {
     id: card
 
     property var opportunity: ({})
@@ -23,7 +23,7 @@ Rectangle {
 
     implicitHeight: column.implicitHeight + 40
     radius: Theme.radius
-    color: hover.hovered ? Theme.surfaceRaised : Theme.surface
+    lifted: hover.hovered
     border.color: hover.hovered ? Theme.borderStrong : Theme.border
     Behavior on color { ColorAnimation { duration: Theme.animFast } }
     // Hover lifts the card a little.

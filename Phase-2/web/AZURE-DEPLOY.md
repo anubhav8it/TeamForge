@@ -146,8 +146,9 @@ Then, in the new app:
    * Optionally `AZURE_DOCINTEL_KEY`, source *Reference a secret*, `docintel-key`.
    * Optionally `AZURE_DOCINTEL_ENDPOINT`, a manual entry with the endpoint.
 
-   On the **Health probes** tab you can add liveness and readiness probes: HTTP, path
-   `/healthz`, port 8000. Then **Save** → **Create**.
+   On the **Health probes** tab you can add a liveness probe (HTTP, path `/healthz`, port 8000:
+   the server is up) and a readiness probe (HTTP, path `/readyz`, port 8000: the server can also
+   reach the database). Then **Save** → **Create**.
 3. **Application → Scale**: min replicas **0**, max replicas **1** → Save. Zero means it sleeps
    when unused (free); the first visit after a quiet spell waits a few seconds while it starts.
 
@@ -212,7 +213,7 @@ From then on, every merge to main builds the app, then the image, then rolls it 
 ## 10. Check, then retire Render
 
 On the Azure address (or your domain), check that:
-- `/healthz` shows `ok`;
+- `/healthz` shows `ok` and `/readyz` shows `ready` (the database answers);
 - existing accounts sign in and see their profiles and teams;
 - a change you save is still there after reloading, and after signing in from another browser;
 - a resume uploads (and a photo, if step 4 was done);

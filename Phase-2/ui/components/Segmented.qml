@@ -30,8 +30,14 @@ Rectangle {
         width: target?.width ?? 0
         height: segmented.height - 6
         radius: Theme.radiusSmall - 2
-        color: Theme.surfaceHover
         border.color: Theme.borderStrong
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.lighter(Theme.surfaceHover, 1.18) }
+            GradientStop { position: 1.0; color: Theme.surfaceHover }
+        }
+        // shade under the pill and light on its top edge
+        Rectangle { z: -1; anchors.fill: parent; anchors.topMargin: 2; anchors.bottomMargin: -2; radius: parent.radius; color: Theme.shadow }
+        Rectangle { x: parent.radius; y: 1; width: Math.max(0, parent.width - parent.radius * 2); height: 1; color: "#1AFFFFFF" }
         Behavior on x { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
         Behavior on width { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic } }
     }

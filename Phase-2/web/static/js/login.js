@@ -7,17 +7,25 @@
   const forms = { signin: $("form-signin"), register: $("form-register") };
   const tabs = { signin: $("tab-signin"), register: $("tab-register") };
 
-  function show(text, kind) {
+  // `field`: the input to fix, marked invalid (and focused) until it changes.
+  function show(text, kind, field) {
     message.textContent = text;
     message.className = "message " + (kind || "error");
+    if (field) { field.setAttribute("aria-invalid", "true"); field.focus(); }
   }
-  function clear() { message.className = "message hidden"; message.textContent = ""; }
+  function clear() {
+    message.className = "message hidden"; message.textContent = "";
+    for (const input of document.querySelectorAll("input[aria-invalid]")) input.removeAttribute("aria-invalid");
+  }
+  for (const input of document.querySelectorAll(".field input"))
+    input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
 
   function select(which) {
     for (const key of Object.keys(forms)) {
       forms[key].classList.toggle("hidden", key !== which);
       tabs[key].setAttribute("aria-selected", String(key === which));
     }
+    tabs.signin.parentElement.dataset.active = which; // slides the selection pill
     clear();
     (which === "signin" ? $("signin-email") : $("register-email")).focus();
   }
@@ -41,7 +49,11 @@
 
   async function submit(form, path, body) {
     const button = form.querySelector("button[type=submit]");
+    const label = button.textContent;
     button.disabled = true;
+    button.classList.add("loading");
+    button.setAttribute("aria-busy", "true");
+    button.textContent = form === forms.signin ? "Signing in…" : "Creating account…";
     clear();
     try {
       await post(path, body);
@@ -49,6 +61,9 @@
     } catch (error) {
       show(error.message);
       button.disabled = false;
+      button.classList.remove("loading");
+      button.removeAttribute("aria-busy");
+      button.textContent = label;
     }
   }
 
@@ -56,7 +71,7 @@
     event.preventDefault();
     const email = $("signin-email").value.trim();
     const password = $("signin-password").value;
-    if (!email || !password) return show("Enter your email and password.");
+    if (!email || !password) return show("Enter your email and password.", "error", !email ? $("signin-email") : $("signin-password"));
     submit(forms.signin, "/api/login", { email, password });
   });
 
@@ -64,9 +79,9 @@
     event.preventDefault();
     const email = $("register-email").value.trim();
     const password = $("register-password").value;
-    if (!email) return show("Enter your email address.");
-    if (password.length < 8) return show("Use a password of at least 8 characters.");
-    if (password !== $("register-confirm").value) return show("The two passwords do not match.");
+    if (!email) return show("Enter your email address.", "error", $("register-email"));
+    if (password.length < 8) return show("Use a password of at least 8 characters.", "error", $("register-password"));
+    if (password !== $("register-confirm").value) return show("The two passwords do not match.", "error", $("register-confirm"));
     submit(forms.register, "/api/register", { email, password });
   });
 })();

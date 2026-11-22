@@ -4,7 +4,7 @@ import TeamForge
 
 // Card surface with an optional header (title, subtitle, actions). The first content item
 // should fill the body; its implicitHeight sizes the panel when the layout allows.
-Rectangle {
+Surface {
     id: panel
 
     property string title
@@ -13,9 +13,6 @@ Rectangle {
     default property alias content: body.data
     property alias actions: actionRow.data
 
-    color: Theme.surface
-    radius: Theme.radius
-    border.color: Theme.border
     implicitWidth: 280
     implicitHeight: layout.implicitHeight
 

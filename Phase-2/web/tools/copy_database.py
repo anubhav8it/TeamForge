@@ -25,6 +25,7 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from server import Database  # noqa: E402  (the same schema and SQL dialect handling)
+from hub import HUB_TABLES  # noqa: E402  (teams, chat, applications, anonymous requests, notifications)
 
 # Parents before children (sessions and user_files refer to users).
 TABLES = {
@@ -32,7 +33,10 @@ TABLES = {
     "sessions": ["token_hash", "user_id", "expires_at"],
     "shared_files": ["name", "content", "version", "updated_at", "updated_by"],
     "user_files": ["user_id", "name", "content", "version", "updated_at"],
+    **HUB_TABLES,
 }
+# Tables whose SERIAL id must continue after the copied rows on PostgreSQL.
+SERIAL_TABLES = ["users"] + [name for name, columns in HUB_TABLES.items() if columns[0] == "id"]
 
 
 def open_database(target: str) -> Database:
@@ -67,8 +71,10 @@ def copy(source: str, target: str, replace: bool = False) -> dict[str, int]:
         marks = ", ".join("?" for _ in columns)
         for row in rows:
             dst.execute(f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({marks})", tuple(row))
-    if dst.is_pg:  # new accounts must continue after the copied ids
-        dst.execute("SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)")
+    if dst.is_pg:  # new rows must continue after the copied ids
+        for table in SERIAL_TABLES:
+            dst.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                        f"COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)")
     copied, expected = counts(dst), counts(src)
     if copied != expected:
         raise SystemExit(f"Row counts differ after copying: source {expected}, target {copied}.")

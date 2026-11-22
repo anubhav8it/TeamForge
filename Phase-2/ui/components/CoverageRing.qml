@@ -34,7 +34,7 @@ Item {
             const cy = height / 2
             ctx.lineWidth = ring.lineWidth
             ctx.lineCap = "round"
-            ctx.strokeStyle = Theme.border
+            ctx.strokeStyle = Theme.borderStrong
             ctx.beginPath()
             ctx.arc(cx, cy, r, 0, Math.PI * 2)
             ctx.stroke()

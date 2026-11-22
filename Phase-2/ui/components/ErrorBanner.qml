@@ -23,8 +23,13 @@ Item {
         anchors.rightMargin: 24
         implicitHeight: row.implicitHeight + 16
         radius: Theme.radiusSmall
-        color: "#33191C"
-        border.color: "#6B2B30"
+        color: "#2A1420"
+        border.color: "#6A2A33"
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: "#3A1822" }
+            GradientStop { position: 1.0; color: "#22121C" }
+        }
         visible: opacity > 0
         opacity: banner.shown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
