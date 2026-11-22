@@ -106,6 +106,11 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width
         height: 1
-        color: Theme.border
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: Theme.borderStrong }
+            GradientStop { position: 0.7; color: Theme.border }
+            GradientStop { position: 1.0; color: "transparent" }
+        }
     }
 }

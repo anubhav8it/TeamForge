@@ -53,7 +53,7 @@ Item {
 
         HubSkeleton { visible: notes.loading && notes.result.items.length === 0; rows: 4; rowHeight: 60; Layout.fillWidth: true }
 
-        Rectangle {
+        Surface {
             visible: notes.result.items.length > 0
             Layout.fillWidth: true
             Layout.fillHeight: true

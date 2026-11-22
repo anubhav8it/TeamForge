@@ -11,7 +11,7 @@ ColumnLayout {
 
     Repeater {
         model: skeleton.rows
-        delegate: Rectangle {
+        delegate: Surface {
             id: row
             required property int index
             Layout.fillWidth: true

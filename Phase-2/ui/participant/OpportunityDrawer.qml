@@ -461,7 +461,7 @@ Drawer {
 
         // Footer, always in view: a collaboration quote, then the one action. Once interest is
         // sent the quote steps aside and the status takes its place.
-        Rectangle {
+        Surface {
             Layout.fillWidth: true
             implicitHeight: footer.implicitHeight + 36
             color: Theme.surface

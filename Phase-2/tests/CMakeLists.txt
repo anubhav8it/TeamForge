@@ -49,3 +49,7 @@ set_tests_properties(tst_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 teamforge_add_test(tst_community tst_community.cpp)
 target_link_libraries(tst_community PRIVATE teamforge_ui teamforge_uiplugin)
 set_tests_properties(tst_community PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# A screenshot of every main screen (skipped unless TEAMFORGE_SHOTS is set; use QT_QPA_PLATFORM=windows for correct text).
+teamforge_add_test(tst_screens tst_screens.cpp)
+target_link_libraries(tst_screens PRIVATE teamforge_ui teamforge_uiplugin)

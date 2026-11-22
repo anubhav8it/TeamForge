@@ -411,7 +411,7 @@ Drawer {
         }
 
         // Footer, always in view.
-        Rectangle {
+        Surface {
             Layout.fillWidth: true
             implicitHeight: footer.implicitHeight + 32
             color: Theme.surface

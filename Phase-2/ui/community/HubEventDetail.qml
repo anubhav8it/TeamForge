@@ -103,7 +103,7 @@ Item {
             spacing: Theme.gap
 
             // ------------------------------------------------------------ header
-            Rectangle {
+            Surface {
                 Layout.fillWidth: true
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24

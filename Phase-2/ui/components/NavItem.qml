@@ -22,7 +22,9 @@ Rectangle {
     Accessible.name: text
     Accessible.onPressAction: item.clicked()
     radius: Theme.radiusSmall
-    color: selected ? Theme.surfaceRaised : hover.hovered ? Theme.surface : "transparent"
+    color: selected ? Qt.rgba(selectedColor.r, selectedColor.g, selectedColor.b, 0.12) : hover.hovered ? Theme.surface : "transparent"
+    border.width: selected ? 1 : 0
+    border.color: Qt.rgba(selectedColor.r, selectedColor.g, selectedColor.b, 0.28)
     Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
     opacity: enabled ? 1 : 0.4
@@ -35,6 +37,13 @@ Rectangle {
         height: parent.height - 20
         radius: 2
         color: item.selectedColor
+        Rectangle {
+            anchors.centerIn: parent
+            width: 12
+            height: parent.height + 8
+            radius: 6
+            color: Qt.rgba(item.selectedColor.r, item.selectedColor.g, item.selectedColor.b, 0.3)
+        }
     }
 
     RowLayout {
@@ -47,11 +56,10 @@ Rectangle {
             implicitWidth: 28
             implicitHeight: 28
             radius: 14
-            color: item.selected ? item.selectedColor : "transparent"
+            color: item.selected ? item.selectedColor : hover.hovered ? Theme.surfaceRaised : "transparent"
             border.width: item.selected ? 0 : 1.5
             border.color: hover.hovered ? Theme.textSecondary : Theme.borderStrong
             Layout.alignment: item.compact ? Qt.AlignHCenter : Qt.AlignVCenter
-            Behavior on color { ColorAnimation { duration: Theme.animFast } }
             Text {
                 anchors.centerIn: parent
                 text: item.glyph

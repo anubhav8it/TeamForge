@@ -33,7 +33,7 @@ TfPage {
             Item { Layout.preferredHeight: 4 }
 
             // Who am I
-            Rectangle {
+            Surface {
                 Layout.fillWidth: true
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24

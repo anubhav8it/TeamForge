@@ -69,7 +69,7 @@ TfPage {
         spacing: Theme.gap
 
         // What we are matching for, and the three steps.
-        Rectangle {
+        Surface {
             Layout.fillWidth: true
             implicitHeight: strip.implicitHeight + 32
             radius: Theme.radius

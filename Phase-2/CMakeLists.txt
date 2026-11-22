@@ -46,6 +46,8 @@ qt_add_qml_module(teamforge_ui
     QML_FILES
         ui/Main.qml
         ui/Theme.qml
+        ui/components/AmbientBackground.qml
+        ui/components/AmbientGlow.qml
         ui/components/Avatar.qml
         ui/components/Chip.qml
         ui/components/CheckResult.qml
@@ -64,6 +66,7 @@ qt_add_qml_module(teamforge_ui
         ui/components/SkillChips.qml
         ui/components/SkillField.qml
         ui/components/StatTile.qml
+        ui/components/Surface.qml
         ui/components/TfButton.qml
         ui/components/TfCheck.qml
         ui/components/TfComboBox.qml

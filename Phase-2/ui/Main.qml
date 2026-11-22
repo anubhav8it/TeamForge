@@ -132,6 +132,13 @@ ApplicationWindow {
                 onChosen: workspace => Backend.enterWorkspace(workspace)
             }
 
+            // Midnight page with soft light in the workspace's colour, behind every workspace page.
+            AmbientBackground {
+                anchors.fill: parent
+                visible: window.workspace !== ""
+                tone: Theme.workspaceColor(window.workspace)
+            }
+
             RowLayout {
                 anchors.fill: parent
                 visible: window.workspace !== ""

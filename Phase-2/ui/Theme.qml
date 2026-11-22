@@ -7,34 +7,45 @@ import QtQuick
 // blue = engagement, interest and information, amber = experience and warnings,
 // teal = complementarity, violet = diversity and the developer workspace.
 QtObject {
-    // Bright graphite surfaces, darkest to lightest: elevated cards read clearly against the page.
-    readonly property color sidebar: "#1A1E25"
-    readonly property color background: "#20252D"
-    readonly property color surface: "#2A303A"
-    readonly property color surfaceRaised: "#343B47"
-    readonly property color surfaceHover: "#3D4552"
-    readonly property color input: "#1E232B"
-    readonly property color border: "#3A424F"
-    readonly property color borderStrong: "#4E5868"
+    // Midnight navy surfaces, darkest to lightest. Each step is a clear lift, so cards read against
+    // the page and raised controls against cards. Blue-tinted (not grey) so the brand coral and
+    // the accents glow against them.
+    readonly property color sidebar: "#090D16"
+    readonly property color background: "#0D1220"
+    readonly property color surface: "#141B2C"
+    readonly property color surfaceRaised: "#1B2437"
+    readonly property color surfaceHover: "#243049"
+    readonly property color input: "#0A0F1B"
+    readonly property color border: "#232D44"
+    readonly property color borderStrong: "#34405C"
 
-    readonly property color text: "#F8F9FB"
-    readonly property color textSecondary: "#D2D7DF"
-    readonly property color textMuted: "#A3ACB8"
+    readonly property color text: "#F5F7FB"
+    readonly property color textSecondary: "#C9D1E0"
+    readonly property color textMuted: "#8F9BB3"
 
+    // TeamForge red, and a warmer coral it blends into for primary actions and highlights.
     readonly property color accent: "#F0434A"
     readonly property color accentHover: "#FF5C62"
     readonly property color accentPressed: "#D2353C"
+    readonly property color accentWarm: "#FF7A59"
     readonly property color accentSubtle: "#2EF0434A"
     readonly property color selection: "#26F0434A"
 
-    readonly property color success: "#3DD598"
-    readonly property color successSubtle: "#263DD598"
+    readonly property color success: "#3DD6A5"
+    readonly property color successSubtle: "#263DD6A5"
     readonly property color info: "#5AB0FF"
     readonly property color infoSubtle: "#265AB0FF"
     readonly property color warning: "#FFB547"
     readonly property color warningSubtle: "#26FFB547"
     readonly property color teal: "#2DD4BF"
     readonly property color violet: "#A78BFA"
+
+    // Depth: the light catching a card's top edge, the shade under it, a glass panel over the
+    // ambient background, and the focus ring every control shares.
+    readonly property color highlight: "#0FFFFFFF"
+    readonly property color shadow: "#66000000"
+    readonly property color glass: "#D9141B2C"
+    readonly property color focusRing: "#59F0434A"
 
     // Score factors in factorDefinitions order.
     readonly property var factorColors: [accent, teal, warning, info, violet]
@@ -63,8 +74,9 @@ QtObject {
     readonly property int fontScore: 29
     readonly property int fontDisplay: 40
 
-    readonly property int radius: 12
-    readonly property int radiusSmall: 8
+    readonly property int radius: 14
+    readonly property int radiusSmall: 10
+    readonly property int radiusLarge: 20
     readonly property int gap: 16
     readonly property int pad: 20
     readonly property int animFast: 120

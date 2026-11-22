@@ -213,9 +213,9 @@ Item {
                     }
                     TfText {
                         text: editor.steps[editor.step]
-                        font.pixelSize: 30
+                        font.pixelSize: 36
                         font.weight: Font.ExtraBold
-                        font.letterSpacing: -0.6
+                        font.letterSpacing: -0.9
                     }
                     TfText {
                         text: editor.stepIntros[editor.step]
@@ -233,50 +233,104 @@ Item {
                 }
             }
 
-            // Step indicator: 01 ... 05, done steps checked.
-            RowLayout {
+            // Step rail: the four steps on one line that fills as the person moves on; the
+            // current step glows, finished ones are ticked. Any step is reachable while editing;
+            // during onboarding, earlier ones only.
+            Item {
+                id: rail
                 Layout.fillWidth: true
-                spacing: 8
+                Layout.topMargin: 4
+                implicitHeight: 64
+                readonly property real spacingX: width / editor.steps.length
+                readonly property real firstX: spacingX / 2
+
+                Rectangle {
+                    x: rail.firstX
+                    y: 17
+                    width: rail.width - rail.spacingX
+                    height: 4
+                    radius: 2
+                    color: Theme.input
+                    border.color: Theme.border
+                }
+                Rectangle {
+                    x: rail.firstX
+                    y: 17
+                    width: (rail.width - rail.spacingX) * (editor.step / (editor.steps.length - 1))
+                    height: 4
+                    radius: 2
+                    visible: width > 0
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: Theme.success }
+                        GradientStop { position: 1.0; color: Theme.info }
+                    }
+                    Behavior on width { NumberAnimation { duration: Theme.animSlow; easing.type: Easing.OutCubic } }
+                }
+
                 Repeater {
                     model: editor.steps
-                    delegate: RowLayout {
+                    delegate: Item {
                         id: stepItem
                         required property string modelData
                         required property int index
                         readonly property bool current: index === editor.step
                         readonly property bool done: index < editor.step
-                        // Any step is reachable while editing; during onboarding, earlier ones only.
                         readonly property bool reachable: editor.editing || index <= editor.step
-                        spacing: 8
-                        Layout.fillWidth: true
+                        x: rail.spacingX * index
+                        width: rail.spacingX
+                        height: rail.height
+                        Accessible.role: Accessible.Button
+                        Accessible.name: qsTr("Step %1: %2").arg(stepItem.index + 1).arg(stepItem.modelData)
+                        Accessible.onPressAction: if (stepItem.reachable) editor.step = stepItem.index
+
+                        // halo behind the current step
                         Rectangle {
-                            implicitWidth: 34
-                            implicitHeight: 34
-                            radius: 17
-                            color: stepItem.current ? Theme.info : stepItem.done ? Theme.successSubtle : "transparent"
-                            border.width: stepItem.current || stepItem.done ? 0 : 1.5
-                            border.color: Theme.borderStrong
-                            Behavior on color { ColorAnimation { duration: Theme.animNormal } }
+                            anchors.horizontalCenter: dot.horizontalCenter
+                            anchors.verticalCenter: dot.verticalCenter
+                            width: 50
+                            height: 50
+                            radius: 25
+                            color: Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, 0.18)
+                            visible: stepItem.current
+                        }
+                        Rectangle {
+                            id: dot
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            y: 1
+                            width: 36
+                            height: 36
+                            radius: 18
+                            color: stepItem.done ? "#12352C" : Theme.surfaceRaised
+                            gradient: stepItem.current ? currentFill : null
+                            border.width: stepItem.current ? 0 : 1.5
+                            border.color: stepItem.done ? Theme.success : stepHover.hovered && stepItem.reachable ? Theme.textSecondary : Theme.borderStrong
+                            scale: stepItem.current ? 1.06 : 1
+                            Behavior on scale { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutBack } }
+                            Gradient {
+                                id: currentFill
+                                GradientStop { position: 0.0; color: Qt.lighter(Theme.info, 1.15) }
+                                GradientStop { position: 1.0; color: "#3B82F6" }
+                            }
                             Text {
                                 anchors.centerIn: parent
                                 text: stepItem.done ? "✓" : String(stepItem.index + 1).padStart(2, "0")
                                 font.family: Theme.fontFamily
                                 font.pixelSize: 13
                                 font.weight: Font.ExtraBold
-                                color: stepItem.current ? "#0B1A2A" : stepItem.done ? Theme.success : Theme.textSecondary
+                                color: stepItem.current ? "#06121F" : stepItem.done ? Theme.success : Theme.textSecondary
                             }
                         }
                         TfText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: dot.bottom
+                            anchors.topMargin: 8
                             text: stepItem.modelData
                             font.weight: Font.ExtraBold
                             font.pixelSize: Theme.fontSm
-                            color: stepItem.current ? Theme.text : Theme.textMuted
-                            Layout.fillWidth: true
+                            color: stepItem.current ? Theme.text : stepItem.done ? Theme.textSecondary : Theme.textMuted
                         }
-                        Accessible.role: Accessible.Button
-                        Accessible.name: qsTr("Step %1: %2").arg(stepItem.index + 1).arg(stepItem.modelData)
-                        Accessible.onPressAction: if (stepItem.reachable) editor.step = stepItem.index
-                        HoverHandler { enabled: stepItem.reachable; cursorShape: Qt.PointingHandCursor }
+                        HoverHandler { id: stepHover; enabled: stepItem.reachable; cursorShape: Qt.PointingHandCursor }
                         TapHandler {
                             enabled: stepItem.reachable
                             onTapped: editor.step = stepItem.index
@@ -284,17 +338,12 @@ Item {
                     }
                 }
             }
-            MeterBar {
-                Layout.fillWidth: true
-                value: (editor.step + 1) / editor.steps.length
-                fillColor: Theme.info
-            }
 
             // The step itself
-            Rectangle {
+            Surface {
                 Layout.fillWidth: true
                 // Sized to the current step: a StackLayout reports its tallest page.
-                implicitHeight: ((stepStack.children[stepStack.currentIndex] as Item)?.implicitHeight ?? 0) + 48
+                implicitHeight: ((stepStack.children[stepStack.currentIndex] as Item)?.implicitHeight ?? 0) + 56
                 radius: Theme.radius
                 color: Theme.surface
                 border.color: Theme.border
@@ -302,7 +351,7 @@ Item {
                 StackLayout {
                     id: stepStack
                     anchors.fill: parent
-                    anchors.margins: 24
+                    anchors.margins: 28
                     currentIndex: editor.step
 
                     // 01 Profile
@@ -707,9 +756,22 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        implicitHeight: navRow.implicitHeight + 28
-        color: Theme.background
-        Rectangle { width: parent.width; height: 1; color: Theme.border }
+        implicitHeight: navRow.implicitHeight + 32
+        // Glass over the page: content scrolling underneath fades into it.
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82) }
+            GradientStop { position: 1.0; color: Theme.background }
+        }
+        Rectangle {
+            width: parent.width
+            height: 1
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 0.5; color: Theme.borderStrong }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
 
         RowLayout {
             id: navRow
@@ -743,10 +805,16 @@ Item {
                 text: qsTr("Save profile")
                 onClicked: editor.finish()
             }
+            TfText {
+                visible: !(editor.showErrors && editor.blocker(editor.step) !== "")
+                text: qsTr("Step %1 of %2").arg(editor.step + 1).arg(editor.steps.length)
+                variant: "muted"
+                font.weight: Font.Bold
+            }
             TfButton {
                 text: editor.step < editor.steps.length - 1 ? qsTr("Continue") : editor.editing ? qsTr("Save profile") : qsTr("Finish")
                 variant: "primary"
-                Layout.preferredWidth: 150
+                Layout.preferredWidth: 170
                 onClicked: editor.next()
             }
         }

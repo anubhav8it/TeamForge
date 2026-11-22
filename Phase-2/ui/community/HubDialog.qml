@@ -30,12 +30,16 @@ Popup {
     closePolicy: Popup.CloseOnEscape
     onOpened: error = ""
 
-    Overlay.modal: Rectangle { color: "#990B0D11" }
-    background: Rectangle {
-        radius: Theme.radius
-        color: Theme.surfaceRaised
-        border.color: Theme.borderStrong
+    Overlay.modal: Rectangle { color: "#B3050810" }
+    enter: Transition {
+        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 160; easing.type: Easing.OutCubic }
+        NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: 160; easing.type: Easing.OutCubic }
     }
+    exit: Transition {
+        NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 110 }
+    }
+
+    background: Surface { radius: Theme.radiusLarge; baseColor: Theme.surfaceRaised; border.color: Theme.borderStrong }
 
     contentItem: ColumnLayout {
         spacing: 12

@@ -65,7 +65,7 @@ Item {
                 spacing: 8
                 Repeater {
                     model: people.result.items
-                    delegate: Rectangle {
+                    delegate: Surface {
                         id: row
                         required property var modelData
                         Layout.fillWidth: true

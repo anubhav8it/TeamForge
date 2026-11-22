@@ -75,14 +75,14 @@ Item {
                         { label: qsTr("Anonymous requests"), value: Hub.anonymousInbox, tone: Theme.violet, route: "anonymous",
                           hint: qsTr("new in your inbox") }
                     ]
-                    delegate: Rectangle {
+                    delegate: Surface {
                         id: tile
                         required property var modelData
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
                         implicitHeight: 112
                         radius: Theme.radius
-                        color: tileHover.hovered ? Theme.surfaceRaised : Theme.surface
+                        lifted: tileHover.hovered
                         border.color: Theme.border
                         Accessible.role: Accessible.Button
                         Accessible.name: modelData.label + ": " + modelData.value

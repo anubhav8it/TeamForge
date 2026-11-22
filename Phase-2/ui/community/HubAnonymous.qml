@@ -89,7 +89,7 @@ Item {
         spacing: Theme.gap
 
         // ---------------------------------------------------------------- list
-        Rectangle {
+        Surface {
             Layout.preferredWidth: 360
             Layout.fillHeight: true
             radius: Theme.radius
@@ -184,7 +184,7 @@ Item {
         }
 
         // ---------------------------------------------------------------- conversation
-        Rectangle {
+        Surface {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Theme.radius

@@ -93,7 +93,7 @@ Item {
                     rowSpacing: Theme.gap
                     Repeater {
                         model: events.result.items
-                        delegate: Rectangle {
+                        delegate: Surface {
                             id: card
                             required property var modelData
                             Layout.fillWidth: true
@@ -101,7 +101,7 @@ Item {
                             Layout.alignment: Qt.AlignTop
                             implicitHeight: cardColumn.implicitHeight + 36
                             radius: Theme.radius
-                            color: cardHover.hovered ? Theme.surfaceRaised : Theme.surface
+                            lifted: cardHover.hovered
                             border.color: cardHover.hovered ? Theme.borderStrong : Theme.border
                             Accessible.role: Accessible.Button
                             Accessible.name: qsTr("Event %1").arg(modelData.name)

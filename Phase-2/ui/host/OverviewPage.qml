@@ -65,7 +65,7 @@ TfPage {
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24
 
-                Rectangle {
+                Surface {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     implicitHeight: hero.implicitHeight + 48
@@ -418,7 +418,7 @@ TfPage {
                                     Repeater {
                                         model: page.team.members ?? []
                                         // A ring in the card colour keeps overlapping avatars apart.
-                                        delegate: Rectangle {
+                                        delegate: Surface {
                                             id: stacked
                                             required property var modelData
                                             width: 38
@@ -509,7 +509,7 @@ TfPage {
 
                     Repeater {
                         model: Backend.recentProjects.slice(0, page.wide ? 8 : 6)
-                        delegate: Rectangle {
+                        delegate: Surface {
                             id: card
                             required property var modelData
                             readonly property bool active: modelData.id === Backend.currentRequirementId
@@ -521,7 +521,7 @@ TfPage {
                             Layout.preferredWidth: 1
                             implicitHeight: 112
                             radius: Theme.radius
-                            color: cardHover.hovered ? Theme.surfaceRaised : Theme.surface
+                            lifted: cardHover.hovered
                             border.width: active ? 2 : 1
                             border.color: active ? Theme.accent : cardHover.hovered ? Theme.borderStrong : Theme.border
                             Behavior on color { ColorAnimation { duration: Theme.animFast } }

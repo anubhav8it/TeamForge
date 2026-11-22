@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import TeamForge
 
 // A team in the browse grid: name, tagline, leader, open roles, size and whether it recruits.
-Rectangle {
+Surface {
     id: card
 
     property var team: ({})
@@ -13,7 +13,7 @@ Rectangle {
 
     implicitHeight: column.implicitHeight + 36
     radius: Theme.radius
-    color: hover.hovered ? Theme.surfaceRaised : Theme.surface
+    lifted: hover.hovered
     border.color: hover.hovered ? Theme.borderStrong : Theme.border
     Behavior on color { ColorAnimation { duration: Theme.animFast } }
     Accessible.role: Accessible.Button

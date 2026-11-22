@@ -7,7 +7,7 @@ import TeamForge
 // One application, for its reviewer (`reviewer: true`: the applicant's profile and the decision
 // buttons the rules allow) or for the applicant (the team or event, the status, the response, and
 // Withdraw while allowed).
-Rectangle {
+Surface {
     id: card
 
     property var application: ({})

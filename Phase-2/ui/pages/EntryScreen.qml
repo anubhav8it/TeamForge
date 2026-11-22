@@ -195,14 +195,49 @@ Rectangle {
 
         }
 
-        TfText {
-            text: "TEAMFORGE"
-            font.pixelSize: entry.shortWindow ? 56 : 66
-            font.weight: Font.ExtraBold
-            font.letterSpacing: 10 + (1 - entry.stage(1)) * 10
+        // Wordmark: white fading to silver, a touch of coral at the base (the gradient is drawn
+        // through the letters; the text itself stays on top, invisible, for screen readers).
+        Item {
+            id: wordmark
+            implicitWidth: wordText.implicitWidth
+            implicitHeight: wordText.implicitHeight
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: entry.shortWindow ? 26 : 38
             opacity: entry.stage(1)
+
+            TfText {
+                id: wordMask
+                visible: false
+                layer.enabled: true
+                text: wordText.text
+                font: wordText.font
+                color: "#FFFFFF"
+            }
+            Rectangle {
+                id: wordFill
+                anchors.fill: wordMask
+                visible: false
+                layer.enabled: true
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#FFFFFF" }
+                    GradientStop { position: 0.62; color: "#D5DBE7" }
+                    GradientStop { position: 1.0; color: "#F2B3AE" }
+                }
+            }
+            MultiEffect {
+                anchors.fill: wordMask
+                source: wordFill
+                maskEnabled: true
+                maskSource: wordMask
+            }
+            TfText {
+                id: wordText
+                text: "TEAMFORGE"
+                font.pixelSize: entry.shortWindow ? 56 : 66
+                font.weight: Font.ExtraBold
+                font.letterSpacing: 10 + (1 - entry.stage(1)) * 10
+                color: "transparent"
+            }
         }
         TfText {
             text: qsTr("Build the right team.")
@@ -306,14 +341,47 @@ Rectangle {
                     Rectangle {
                         id: surface
                         anchors.fill: parent
-                        radius: 20
-                        color: card.picked ? Qt.tint(Theme.surfaceRaised, Qt.rgba(card.tone.r, card.tone.g, card.tone.b, 0.22))
-                             : card.hot ? Theme.surfaceRaised : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.92)
-                        border.width: card.hot || card.picked ? 2 : 1
-                        border.color: card.hot || card.picked ? card.tone : Theme.border
-                        Behavior on color { ColorAnimation { duration: Theme.animNormal } }
+                        radius: Theme.radiusLarge + 2
+                        // Glass lit from the top, washed with the workspace's own colour.
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0.0
+                                color: Qt.tint(Qt.lighter(Theme.surfaceRaised, 1.08),
+                                               Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.picked ? 0.24 : card.hot ? 0.16 : 0.08))
+                            }
+                            GradientStop {
+                                position: 1.0
+                                color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.94)
+                            }
+                        }
+                        border.width: card.hot || card.picked ? 1.5 : 1
+                        border.color: card.hot || card.picked ? Qt.rgba(card.tone.r, card.tone.g, card.tone.b, 0.75) : Theme.border
                         Behavior on border.color { ColorAnimation { duration: Theme.animNormal } }
                         clip: true
+
+                        // The workspace's light, in the top corner; brighter on hover.
+                        AmbientGlow {
+                            tone: card.tone
+                            strength: card.hot || card.picked ? 0.34 : 0.18
+                            width: parent.width * 1.1
+                            height: width
+                            x: parent.width - width * 0.62
+                            y: -height * 0.62
+                            Behavior on strength { NumberAnimation { duration: Theme.animNormal } }
+                        }
+                        // Light catching the top edge.
+                        Rectangle {
+                            x: surface.radius
+                            y: 1
+                            width: surface.width - surface.radius * 2
+                            height: 1
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "transparent" }
+                                GradientStop { position: 0.5; color: card.hot ? "#33FFFFFF" : "#1AFFFFFF" }
+                                GradientStop { position: 1.0; color: "transparent" }
+                            }
+                        }
 
                         // Accent line that grows across the top on hover.
                         Rectangle {
@@ -327,17 +395,14 @@ Rectangle {
                             Behavior on x { NumberAnimation { duration: Theme.animSlow; easing.type: Easing.OutCubic } }
                         }
                         // Light that follows the pointer inside the card.
-                        Rectangle {
+                        AmbientGlow {
                             visible: card.hot
-                            width: 320
-                            height: 320
-                            radius: 160
+                            tone: card.tone
+                            strength: 0.16
+                            width: 360
+                            height: 360
                             x: hover.point.position.x - width / 2
                             y: hover.point.position.y - height / 2
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, 0.10) }
-                                GradientStop { position: 1.0; color: "transparent" }
-                            }
                         }
 
                         GridLayout {
@@ -351,11 +416,26 @@ Rectangle {
                             RowLayout {
                                 spacing: 12
                                 Rectangle {
-                                    implicitWidth: 56
-                                    implicitHeight: 56
+                                    implicitWidth: 58
+                                    implicitHeight: 58
                                     radius: 18
-                                    color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot ? 0.26 : 0.16)
-                                    Behavior on color { ColorAnimation { duration: Theme.animNormal } }
+                                    // Lit tile in the workspace colour, with a halo on hover.
+                                    gradient: Gradient {
+                                        GradientStop { position: 0.0; color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot ? 0.42 : 0.28) }
+                                        GradientStop { position: 1.0; color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot ? 0.18 : 0.10) }
+                                    }
+                                    border.width: 1
+                                    border.color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot ? 0.6 : 0.32)
+                                    Rectangle {
+                                        z: -1
+                                        anchors.fill: parent
+                                        anchors.margins: -6
+                                        radius: parent.radius + 6
+                                        color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, 0.10)
+                                        opacity: card.hot ? 1 : 0
+                                        Behavior on opacity { NumberAnimation { duration: Theme.animNormal } }
+                                    }
+                                    Rectangle { x: 12; y: 1; width: parent.width - 24; height: 1; color: "#33FFFFFF" }
                                     Text {
                                         anchors.centerIn: parent
                                         text: card.modelData.glyph
@@ -393,9 +473,21 @@ Rectangle {
                                 }
                             }
                             Item { Layout.fillHeight: true; visible: !entry.narrow }
-                            RowLayout {
-                                spacing: 8
+                            // "Enter workspace": a pill that fills with the workspace colour on hover.
+                            Rectangle {
+                                implicitWidth: enterRow.implicitWidth + 28
+                                implicitHeight: 40
+                                radius: 20
                                 Layout.alignment: entry.narrow ? Qt.AlignVCenter : Qt.AlignLeft
+                                color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot || card.picked ? 0.2 : 0.0)
+                                border.width: 1
+                                border.color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot || card.picked ? 0.55 : 0.22)
+                                Behavior on color { ColorAnimation { duration: Theme.animNormal } }
+                                Behavior on border.color { ColorAnimation { duration: Theme.animNormal } }
+                            RowLayout {
+                                id: enterRow
+                                anchors.centerIn: parent
+                                spacing: 8
                                 TfText {
                                     text: card.picked ? qsTr("Opening…") : qsTr("Enter workspace")
                                     font.pixelSize: Theme.fontBase
@@ -409,10 +501,11 @@ Rectangle {
                                     font.weight: Font.ExtraBold
                                     color: card.hot || card.picked ? Qt.lighter(card.tone, 1.25) : Theme.textSecondary
                                     transform: Translate {
-                                        x: card.hot || card.picked ? 6 : 0
+                                        x: card.hot || card.picked ? 4 : 0
                                         Behavior on x { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutBack } }
                                     }
                                 }
+                            }
                             }
                         }
                     }
@@ -449,8 +542,10 @@ Rectangle {
         }
 
         TfText {
-            text: qsTr("Runs locally on this device  ·  %1 participants  ·  %2 projects  ·  %3 skills")
-                  .arg(Backend.students.length).arg(Backend.requirements.length).arg(Backend.skillCount)
+            // In the browser the data is shared through the TeamForge server, not kept on the device.
+            text: (Qt.platform.os === "wasm" ? qsTr("Shared through this TeamForge server") : qsTr("Runs locally on this device"))
+                  + qsTr("  ·  %1 participants  ·  %2 projects  ·  %3 skills")
+                    .arg(Backend.students.length).arg(Backend.requirements.length).arg(Backend.skillCount)
             font.pixelSize: Theme.fontSm
             font.weight: Font.DemiBold
             color: Theme.textMuted

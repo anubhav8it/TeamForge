@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import TeamForge
 
 // Compact figure card: label, big value, optional detail line and accent bar.
-Rectangle {
+Surface {
     id: tile
 
     property string label

@@ -55,7 +55,7 @@ Item {
         spacing: Theme.gap
 
         // ---------------------------------------------------------------- conversations
-        Rectangle {
+        Surface {
             Layout.preferredWidth: 300
             Layout.fillHeight: true
             radius: Theme.radius
@@ -143,7 +143,7 @@ Item {
         }
 
         // ---------------------------------------------------------------- the conversation
-        Rectangle {
+        Surface {
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Theme.radius

@@ -124,7 +124,7 @@ Item {
             spacing: Theme.gap
 
             // ------------------------------------------------------------ header
-            Rectangle {
+            Surface {
                 Layout.fillWidth: true
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24
@@ -343,7 +343,7 @@ Item {
                 spacing: 8
                 Repeater {
                     model: detail.team ? detail.team.members : []
-                    delegate: Rectangle {
+                    delegate: Surface {
                         id: memberRow
                         required property var modelData
                         Layout.fillWidth: true

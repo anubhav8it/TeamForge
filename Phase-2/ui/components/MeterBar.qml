@@ -11,7 +11,9 @@ Rectangle {
 
     implicitHeight: 6
     radius: height / 2
-    color: Theme.border
+    color: Theme.input
+    border.color: Theme.border
+    border.width: 1
 
     Component.onCompleted: shown = Math.max(0, Math.min(1, value))
     onValueChanged: shown = Math.max(0, Math.min(1, value))
@@ -21,8 +23,20 @@ Rectangle {
         width: meter.width * meter.shown
         height: parent.height
         radius: parent.radius
-        color: meter.fillColor
         visible: width > 0.5
-        Behavior on color { ColorAnimation { duration: Theme.animNormal } }
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: Qt.darker(meter.fillColor, 1.25) }
+            GradientStop { position: 1.0; color: Qt.lighter(meter.fillColor, 1.15) }
+        }
+        // glow at the leading edge
+        Rectangle {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 14
+            height: parent.height + 6
+            radius: height / 2
+            color: Qt.rgba(meter.fillColor.r, meter.fillColor.g, meter.fillColor.b, 0.35)
+        }
     }
 }

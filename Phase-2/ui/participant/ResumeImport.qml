@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtQuick.Shapes
 import TeamForge
 
 // "Start from your resume": drop a resume here or choose one (a document, or a photo or scan of
@@ -30,10 +31,25 @@ Rectangle {
 
     implicitHeight: body.implicitHeight + 36
     radius: Theme.radius
-    color: drop.containsDrag ? Theme.infoSubtle : Theme.surfaceRaised
-    border.width: drop.containsDrag ? 2 : 1
-    border.color: drop.containsDrag ? Theme.info : Theme.border
-    Behavior on color { ColorAnimation { duration: Theme.animFast } }
+    // A drop zone: tinted blue, outlined with a dashed line that brightens while a file is
+    // dragged over it.
+    border.width: 0
+    gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, drop.containsDrag ? 0.20 : 0.09) }
+        GradientStop { position: 1.0; color: Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, drop.containsDrag ? 0.10 : 0.03) }
+    }
+    Shape {
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeColor: drop.containsDrag ? Theme.info : Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, 0.42)
+            strokeWidth: drop.containsDrag ? 2 : 1.5
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [5, 4]
+            fillColor: "transparent"
+            PathRectangle { x: 1; y: 1; width: card.width - 2; height: card.height - 2; radius: Theme.radius - 1 }
+        }
+    }
 
     Accessible.role: Accessible.Grouping
     Accessible.name: qsTr("Import from your resume")
@@ -70,17 +86,59 @@ Rectangle {
         spacing: 16
 
         Rectangle {
+            id: badge
             Layout.alignment: Qt.AlignTop
-            implicitWidth: 46
-            implicitHeight: 54
-            radius: 8
-            color: Theme.infoSubtle
-            border.color: Qt.rgba(Theme.info.r, Theme.info.g, Theme.info.b, 0.5)
-            Text {
+            implicitWidth: 56
+            implicitHeight: 56
+            radius: 16
+            readonly property color tone: card.phase === "error" ? Theme.warning : card.phase === "ready" ? Theme.success : Theme.info
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(badge.tone.r, badge.tone.g, badge.tone.b, 0.34) }
+                GradientStop { position: 1.0; color: Qt.rgba(badge.tone.r, badge.tone.g, badge.tone.b, 0.12) }
+            }
+            border.color: Qt.rgba(badge.tone.r, badge.tone.g, badge.tone.b, 0.5)
+            Rectangle { x: 12; y: 1; width: parent.width - 24; height: 1; color: "#33FFFFFF" }
+
+            // Upload: an arrow rising out of a tray (bobs gently while the file is read).
+            Shape {
+                id: uploadIcon
+                visible: card.phase === "idle" || card.phase === "working"
                 anchors.centerIn: parent
-                text: card.phase === "ready" ? "✓" : card.phase === "error" ? "!" : card.phase === "confirm" ? "?" : "CV"
+                width: 24
+                height: 24
+                preferredRendererType: Shape.CurveRenderer
+                property real lift: 0
+                transform: Translate { y: -uploadIcon.lift }
+                SequentialAnimation on lift {
+                    running: card.phase === "working"
+                    loops: Animation.Infinite
+                    alwaysRunToEnd: true
+                    NumberAnimation { from: 0; to: 3; duration: 450; easing.type: Easing.InOutQuad }
+                    NumberAnimation { from: 3; to: 0; duration: 450; easing.type: Easing.InOutQuad }
+                }
+                ShapePath {
+                    strokeColor: Qt.lighter(Theme.info, 1.2)
+                    strokeWidth: 2.2
+                    fillColor: "transparent"
+                    capStyle: ShapePath.RoundCap
+                    joinStyle: ShapePath.RoundJoin
+                    startX: 12; startY: 16
+                    PathLine { x: 12; y: 3 }
+                    PathMove { x: 6.5; y: 8.5 }
+                    PathLine { x: 12; y: 3 }
+                    PathLine { x: 17.5; y: 8.5 }
+                    PathMove { x: 3; y: 15 }
+                    PathLine { x: 3; y: 20 }
+                    PathLine { x: 21; y: 20 }
+                    PathLine { x: 21; y: 15 }
+                }
+            }
+            Text {
+                visible: !uploadIcon.visible
+                anchors.centerIn: parent
+                text: card.phase === "ready" ? "✓" : card.phase === "error" ? "!" : "?"
                 font.family: Theme.fontFamily
-                font.pixelSize: card.phase === "idle" || card.phase === "working" ? 15 : 22
+                font.pixelSize: 24
                 font.weight: Font.ExtraBold
                 color: card.phase === "error" ? Theme.warning : card.phase === "ready" ? Theme.success : Theme.info
             }

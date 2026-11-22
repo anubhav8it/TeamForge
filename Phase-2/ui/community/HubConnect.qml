@@ -11,7 +11,7 @@ Item {
     property bool busy: false
     property string error: ""
 
-    Rectangle {
+    Surface {
         anchors.centerIn: parent
         width: Math.min(480, parent.width - 48)
         implicitHeight: column.implicitHeight + 48

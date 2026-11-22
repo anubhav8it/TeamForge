@@ -20,13 +20,22 @@ Rectangle {
     readonly property var project: Backend.currentRequirement
     readonly property var me: Backend.myProfile
 
-    color: Theme.sidebar
+    // Deepest surface, a touch lighter at the top, with the workspace's colour faintly behind the
+    // brand and a light edge on the right.
+    gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.tint("#0E1424", Qt.rgba(sidebar.workspaceColor.r, sidebar.workspaceColor.g, sidebar.workspaceColor.b, 0.05)) }
+        GradientStop { position: 0.45; color: Theme.sidebar }
+        GradientStop { position: 1.0; color: Theme.sidebar }
+    }
 
     Rectangle {
         anchors.right: parent.right
         width: 1
         height: parent.height
-        color: Theme.border
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.borderStrong }
+            GradientStop { position: 1.0; color: Theme.border }
+        }
     }
 
     ColumnLayout {
@@ -85,14 +94,12 @@ Rectangle {
         }
 
         // Context: the host's active project, or the participant's own profile.
-        Rectangle {
+        Surface {
+            elevated: false
             visible: !sidebar.compact && sidebar.workspace === "host" && sidebar.project.id !== undefined
             Layout.fillWidth: true
             Layout.topMargin: 18
             implicitHeight: hostColumn.implicitHeight + 28
-            radius: Theme.radius
-            color: Theme.surface
-            border.color: Theme.border
 
             Rectangle {
                 anchors.left: parent.left
@@ -143,14 +150,12 @@ Rectangle {
                 }
             }
         }
-        Rectangle {
+        Surface {
+            elevated: false
             visible: !sidebar.compact && sidebar.workspace === "participant" && sidebar.me.id !== undefined
             Layout.fillWidth: true
             Layout.topMargin: 18
             implicitHeight: meRow.implicitHeight + 24
-            radius: Theme.radius
-            color: Theme.surface
-            border.color: Theme.border
             RowLayout {
                 id: meRow
                 anchors.fill: parent
