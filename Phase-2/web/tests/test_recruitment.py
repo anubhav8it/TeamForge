@@ -12,6 +12,9 @@ leader's combined list, notifications and the invitation email.
 import http.cookiejar, json, os, sqlite3, subprocess, sys, tempfile, threading, time, urllib.error, urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import testdb  # noqa: E402  (SQLite or PostgreSQL, like the server)
+
 WEB = str(Path(__file__).resolve().parent.parent)
 PORT = 8769
 BASE = f"http://127.0.0.1:{PORT}"
@@ -272,7 +275,7 @@ try:
     # expiry (moved into the past directly in the database)
     s, b = leader.post(f"/teams/{tid}/invitations", {"userId": loser.id})
     old = b["invitation"]["id"]
-    con = sqlite3.connect(DB)
+    con = testdb.connect(DB)
     con.execute("UPDATE team_invitations SET expires_at = 1 WHERE id = ?", (old,))
     con.commit()
     con.close()
@@ -297,7 +300,7 @@ try:
     path = b["path"]
     token = path.split("/")[-1]
     check("token is long and random, no ids", len(token) >= 40 and str(tid) not in path.replace(token, ""), path)
-    con = sqlite3.connect(DB)
+    con = testdb.connect(DB)
     stored = [r[0] for r in con.execute("SELECT token_hash FROM team_invite_links")]
     con.close()
     check("only the token's hash is stored", token not in stored and len(stored[-1]) == 64, stored)
