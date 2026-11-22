@@ -221,3 +221,29 @@ td select { background: var(--input); color: var(--text); border: 1px solid var(
   box-shadow: inset 0 0 0 1px rgba(240, 67, 74, .35), 0 10px 24px -14px rgba(240, 67, 74, .8); }
 .panel-icon svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #verify-button { margin-top: 6px; }
+
+/* Team invitation page (/invite/<token>) */
+.invite-card { max-width: 560px; }
+.invite-loading { color: var(--text-secondary); padding: 8px 0; }
+.eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent-warm); }
+.invite-head { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+.invite-head .panel-title { margin: 0; }
+.invite-head .panel-sub { margin: 4px 0 0; }
+.team-mark { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+  font-weight: 800; font-size: 20px; color: #fff; background: linear-gradient(135deg, var(--accent), var(--violet));
+  box-shadow: 0 8px 24px rgba(240, 67, 74, .25); }
+.invite-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.invite-facts div { border: 1px solid var(--border); border-radius: var(--radius-small); padding: 10px 12px;
+  background: var(--surface); }
+.invite-facts dt { font-size: 12px; color: var(--text-secondary); font-weight: 700; }
+.invite-facts dd { margin: 4px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+.invite-text { color: var(--text-secondary); line-height: 1.55; margin: 0 0 14px; overflow-wrap: anywhere; }
+.invite-h2 { font-size: 13px; font-weight: 800; margin: 4px 0 8px; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0 0 14px; }
+.chip { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: var(--surface-raised); }
+.invite-actions { display: grid; gap: 10px; margin-top: 6px; }
+.invite-actions .btn { text-align: center; text-decoration: none; }
+.invite-actions .btn-ghost { padding: 12px; font-weight: 700; }
+@media (max-width: 420px) { .invite-facts { grid-template-columns: 1fr; } }

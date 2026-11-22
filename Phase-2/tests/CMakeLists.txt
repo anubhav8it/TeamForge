@@ -21,6 +21,7 @@ teamforge_add_test(tst_persistence tst_persistence.cpp TestSupport.h)
 teamforge_add_test(tst_motivation tst_motivation.cpp)
 teamforge_add_test(tst_resume tst_resume.cpp)
 teamforge_add_test(tst_hub tst_hub.cpp)
+teamforge_add_test(tst_compat tst_compat.cpp)
 
 # The QML bridge is compiled into the app's QML module; the test builds the same sources directly.
 teamforge_add_test(tst_controller tst_controller.cpp
@@ -32,6 +33,7 @@ teamforge_add_test(tst_controller tst_controller.cpp
     ${PROJECT_SOURCE_DIR}/src/app/TeamForgeInterest.cpp
     ${PROJECT_SOURCE_DIR}/src/app/TeamForgeMotivation.cpp
     ${PROJECT_SOURCE_DIR}/src/app/TeamForgeResume.cpp
+    ${PROJECT_SOURCE_DIR}/src/app/TeamForgeRecruitment.cpp
     ${PROJECT_SOURCE_DIR}/src/app/BridgeSupport.cpp
     ${PROJECT_SOURCE_DIR}/src/app/AppLog.cpp
     ${PROJECT_SOURCE_DIR}/src/app/SampleData.cpp

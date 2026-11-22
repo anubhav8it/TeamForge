@@ -13,7 +13,9 @@ Surface {
     property var application: ({})
     property bool reviewer: true
     property bool deadlinePassed: false
+    property var report: null           // compatibility with the team (team leaders' view)
     signal decide(var application, string choice)
+    signal openReport(var application)
     signal withdraw(var application)
     signal openProfile(int personId)
     signal openTarget(string link)
@@ -56,7 +58,11 @@ Surface {
                         variant: "heading"
                         Layout.fillWidth: true
                     }
-                    Chip { text: card.application.kind === "event" ? qsTr("Event") : qsTr("Team"); tone: card.application.kind === "event" ? "info" : "neutral" }
+                    Chip {
+                        text: card.application.source === "link" ? qsTr("Via invite link")
+                            : card.report !== null ? qsTr("Applied") : card.application.kind === "event" ? qsTr("Event") : qsTr("Team")
+                        tone: card.application.source === "link" ? "info" : card.application.kind === "event" ? "info" : "neutral"
+                    }
                     HubStatus { status: card.application.status ?? "" }
                 }
                 TfText {
@@ -74,6 +80,53 @@ Surface {
                     variant: "muted"
                     font.pixelSize: Theme.fontXs
                     Layout.fillWidth: true
+                }
+            }
+        }
+
+        // compatibility with the team (advice for the leader)
+        Rectangle {
+            visible: card.reviewer && card.report !== null
+            Layout.fillWidth: true
+            implicitHeight: fitRow.implicitHeight + 16
+            radius: Theme.radiusSmall
+            color: Theme.surfaceRaised
+            RowLayout {
+                id: fitRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 10
+                spacing: 10
+                CoverageRing {
+                    visible: card.report !== null && card.report.enoughInformation === true
+                    size: 44
+                    lineWidth: 4
+                    value: card.report ? (card.report.score ?? 0) : 0
+                    fillColor: Theme.scoreColor(card.report ? (card.report.score ?? 0) : 0)
+                }
+                ColumnLayout {
+                    spacing: 1
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    TfText {
+                        text: card.report ? (card.report.bandLabel ?? "") + ((card.report.suggestedRole ?? "") !== "" && card.report.enoughInformation
+                                                                         ? " · " + card.report.suggestedRole : "") : ""
+                        font.weight: Font.Bold
+                        color: card.report && card.report.enoughInformation ? Theme.scoreColor(card.report.score ?? 0) : Theme.textMuted
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                    TfText {
+                        text: card.report ? [
+                            (card.report.matching ?? []).length > 0 ? qsTr("Matches: %1").arg(card.report.matching.map(f => Theme.skill(f.skill)).join(", ")) : "",
+                            (card.report.notShown ?? []).length > 0 ? qsTr("Not shown: %1").arg(card.report.notShown.map(s => Theme.skill(s)).join(", ")) : ""
+                        ].filter(t => t !== "").join("  ·  ") : ""
+                        variant: "muted"
+                        font.pixelSize: Theme.fontXs
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
                 }
             }
         }
@@ -153,10 +206,10 @@ Surface {
             }
             TfButton {
                 visible: card.reviewer
-                text: qsTr("Profile")
+                text: card.report !== null ? qsTr("Profile & fit") : qsTr("Profile")
                 compact: true
                 variant: "ghost"
-                onClicked: card.openProfile(card.person.id)
+                onClicked: card.report !== null ? card.openReport(card.application) : card.openProfile(card.person.id)
             }
             TfButton {
                 visible: !card.reviewer

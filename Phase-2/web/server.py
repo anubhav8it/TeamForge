@@ -50,7 +50,7 @@ from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
 import hub as hub_module  # web/hub.py: teams, chat, applications, anonymous requests, notifications
 import email_templates  # web/email_templates.py: the branded emails
@@ -754,6 +754,7 @@ class GzipCache:
 
 # --------------------------------------------------------------------------- HTTP handler
 
+INVITE_PATH = re.compile(r"/invite/[A-Za-z0-9_\-]{20,64}")
 PAGE_CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
             "connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 
@@ -774,6 +775,7 @@ class Handler(BaseHTTPRequestHandler):
     resets_per_ip = RateLimit(5, 900)
     resets_per_email = RateLimit(3, 3600)
     reset_attempts_per_ip = RateLimit(20, 900)
+    invite_previews_per_ip = RateLimit(60, 900)
     verify_mails_per_account = RateLimit(3, 3600)
 
     # ---- plumbing
@@ -918,8 +920,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.redirect("/app/" if self.current_user() else "/login")
         if path == "/login":
             if self.current_user():
-                return self.redirect("/app/")
+                # back to a team invitation after signing in (only that kind of page: no open redirect)
+                wanted = parse_qs(urlsplit(self.path).query).get("next", [""])[0]
+                return self.redirect(wanted if INVITE_PATH.fullmatch(wanted) else "/app/")
             return self.serve_file(STATIC_DIR / "login.html", csp=PAGE_CSP)
+        if INVITE_PATH.fullmatch(path):
+            return self.serve_file(STATIC_DIR / "invite.html", csp=PAGE_CSP)
         if path in ("/forgot", "/reset", "/verify"):
             page = {"/forgot": "forgot.html", "/reset": "reset.html", "/verify": "verify.html"}[path]
             return self.serve_file(STATIC_DIR / page, csp=PAGE_CSP)
@@ -1004,6 +1010,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200, {"valid": self.store.token_valid(body.get("token"), "reset")})
         if path == "/api/verify-email":
             return self.verify_email(body)
+        if path == "/api/invite/preview":
+            return self.invite_preview(body)
         user = self.current_user()
         if not user:
             return self.send_json(401, {"error": "Please sign in again."})
@@ -1268,6 +1276,20 @@ class Handler(BaseHTTPRequestHandler):
 
 # --------------------------------------------------------------------------- main
 
+def _invite_preview(handler, body):
+    if not handler.invite_previews_per_ip.take(handler.address_string()):
+        return handler.send_json(429, {"error": "Too many attempts. Try again in a few minutes."})
+    status, payload = 200, None
+    try:
+        payload = handler.hub.preview_invite_link(body.get("token"))
+    except hub_module.HubError as error:
+        status, payload = error.status, {"error": error.message}
+    return handler.send_json(status, payload)
+
+
+Handler.invite_preview = _invite_preview
+
+
 def make_mailer(store: "TeamForgeStore", service: EmailService):
     """What web/hub.py calls to email someone about a decision, an invitation or a team change."""
     builders = {
@@ -1276,6 +1298,8 @@ def make_mailer(store: "TeamForgeStore", service: EmailService):
         "invitation": lambda to, link, c: email_templates.invitation(to, link, service.base_url, c["target"], c["kind"]),
         "team_notification": lambda to, link, c: email_templates.team_notification(
             to, link, service.base_url, c["target"], c["text"]),
+        "team_invitation": lambda to, link, c: email_templates.team_invitation(
+            to, service.link("/app/#/invitations"), service.base_url, c["target"], c["inviter"], c.get("message", "")),
     }
 
     def mailer(user_id, kind, context):

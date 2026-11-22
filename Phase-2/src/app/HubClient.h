@@ -192,6 +192,11 @@ public:
     Q_INVOKABLE QString cropAvatar(double x, double y, double side);
 
     // ---- requests (paths after /api/hub)
+    // A full address for a server path (a team invitation link): the page's own address in the
+    // browser, the server the desktop app signed in to otherwise.
+    Q_INVOKABLE QString absoluteUrl(const QString& path) const;
+    // Copies text to the clipboard (browser: the page's clipboard; desktop: the system's).
+    Q_INVOKABLE bool copyText(const QString& text);
     Q_INVOKABLE void get(const QString& path, const QJSValue& callback = QJSValue());
     Q_INVOKABLE void post(const QString& path, const QVariant& body, const QJSValue& callback = QJSValue());
     // Desktop: sign in to a TeamForge server with an account made on its web page.

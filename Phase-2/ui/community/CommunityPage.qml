@@ -45,6 +45,8 @@ TfPage {
         { key: "teams", text: qsTr("Teams"), count: 0 },
         { key: "events", text: qsTr("Events"), count: 0 },
         { key: "applications", text: qsTr("Applications"), count: Hub.pendingDecisions },
+        ...((Hub.summary.pendingInvitations ?? 0) > 0 || page.section === "invitations"
+            ? [{ key: "invitations", text: qsTr("Invitations"), count: Hub.summary.pendingInvitations ?? 0 }] : []),
         { key: "anonymous", text: qsTr("Anonymous"), count: Hub.anonymousInbox + (Hub.summary.anonymousSentUnread ?? 0) },
         { key: "notifications", text: qsTr("Notifications"), count: Hub.unreadNotifications },
         { key: "profile", text: qsTr("Profile"), count: Hub.needsProfile ? 1 : 0 }
@@ -175,6 +177,8 @@ TfPage {
                 case "notifications": return notificationsPage
                 case "profile": return profilePage
                 case "people": return peoplePage
+                case "invitations": return invitationsPage
+                case "join": return joinPage
                 default: return homePage
                 }
             }
@@ -232,4 +236,6 @@ TfPage {
     Component { id: notificationsPage; HubNotifications { onNavigate: route => page.go(route); onNotify: m => page.notify(m) } }
     Component { id: profilePage; HubProfile { onNavigate: route => page.go(route); onNotify: m => page.notify(m) } }
     Component { id: peoplePage; HubPeople { onNavigate: route => page.go(route); onNotify: m => page.notify(m) } }
+    Component { id: invitationsPage; HubInvitations { onNavigate: route => page.go(route); onNotify: m => page.notify(m) } }
+    Component { id: joinPage; HubJoin { onNavigate: route => page.go(route); onNotify: m => page.notify(m) } }
 }

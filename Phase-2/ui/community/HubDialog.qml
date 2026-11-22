@@ -90,21 +90,22 @@ Popup {
                 font.pixelSize: Theme.fontSm
             }
         }
-        RowLayout {
+        // Right-aligned; on a narrow phone the buttons wrap instead of sticking out of the dialog.
+        Flow {
             Layout.fillWidth: true
             Layout.topMargin: 4
+            layoutDirection: Qt.RightToLeft
             spacing: 8
-            Item { Layout.fillWidth: true }
-            TfButton {
-                text: qsTr("Cancel")
-                variant: "ghost"
-                onClicked: dialog.close()
-            }
             TfButton {
                 text: dialog.busy ? qsTr("Working…") : dialog.primaryText
                 variant: dialog.primaryVariant
                 enabled: dialog.primaryEnabled && !dialog.busy
                 onClicked: dialog.accepted()
+            }
+            TfButton {
+                text: qsTr("Cancel")
+                variant: "ghost"
+                onClicked: dialog.close()
             }
         }
     }

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>TeamForge – Team invitation</title>
+<meta name="theme-color" content="#0B0F1A">
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body class="has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
+<main class="auth-page single">
+  <div class="auth-card invite-card">
+    <img class="auth-logo show" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <section class="panel glass" data-spotlight aria-live="polite">
+      <div id="loading" class="invite-loading">Opening the invitation…</div>
+      <div id="message" class="message hidden" role="alert"></div>
+      <div id="team" class="hidden">
+        <p class="eyebrow">You're invited to join a team</p>
+        <div class="invite-head">
+          <div id="team-mark" class="team-mark" aria-hidden="true"></div>
+          <div>
+            <h1 id="team-name" class="panel-title"></h1>
+            <p id="team-tagline" class="panel-sub"></p>
+          </div>
+        </div>
+        <dl class="invite-facts">
+          <div><dt>Leader</dt><dd id="team-leader"></dd></div>
+          <div><dt>Places left</dt><dd id="team-vacancies"></dd></div>
+        </dl>
+        <p id="team-description" class="invite-text"></p>
+        <div id="skills-block" class="hidden">
+          <h2 class="invite-h2">Skills the team is looking for</h2>
+          <ul id="team-skills" class="chips"></ul>
+        </div>
+        <div id="roles-block" class="hidden">
+          <h2 class="invite-h2">Open roles</h2>
+          <ul id="team-roles" class="chips"></ul>
+        </div>
+        <div id="signed-out" class="hidden invite-actions">
+          <p class="invite-text">Sign in or create a free account to see how well you fit this team and send your
+            application. You'll come straight back here.</p>
+          <a id="signin" class="btn btn-primary" href="/login">Sign in</a>
+          <a id="register" class="btn btn-ghost" href="/login#register">Create an account</a>
+        </div>
+        <div id="signed-in" class="hidden invite-actions">
+          <p class="invite-text">The team leader reviews every application and decides. Joining is never automatic.</p>
+          <button id="continue" class="btn btn-primary" type="button">Review and apply in TeamForge</button>
+        </div>
+      </div>
+    </section>
+    <p class="auth-foot">TeamForge never shows your email address to teams.</p>
+  </div>
+</main>
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
+<script src="/static/js/invite.js"></script>
+</body>
+</html>

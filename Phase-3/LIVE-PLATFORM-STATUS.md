@@ -63,6 +63,30 @@ Each block is marked complete only after it has been tested. Newest findings fir
 - [ ] Key Vault decision implemented
 - [ ] Block 1 completion report
 
+## Team recruitment and compatibility (branch `team-recruitment`, 2026-11-22)
+
+Built from the "team recruitment, member invitation & AI compatibility" prompt. Details:
+`Phase-2/web/README-WEB.md`, section *Team recruitment*.
+
+- [x] Team page: Recruit strip (places left, pending counts), Find members, Invite via link;
+      skill coverage (covered / partly / missing) for every team; required skills with levels
+- [x] Find members: registered people who are open to invitations, searched over Community and
+      participant profiles; cards with photo, skills, teams, compatibility; full profile view
+- [x] Direct invitations: message, notification + email (when set up), accept / decline /
+      withdraw / 14-day expiry, one open invitation per person, capacity checked in the transaction
+- [x] Invitation links: hashed random tokens, expiry, regenerate, revoke, public preview page,
+      sign-in / registration round trip, server-side claim that survives onboarding; applications
+      through links are reviewed by the leader (never automatic)
+- [x] Leader's Applications tab: applications and invitations together with filters and each
+      person's compatibility; invited people accept or decline on the team page or Invitations
+- [x] Compatibility: the existing C++ weighted matching (`src/core/Compatibility.h`), explained
+      factor by factor; evidence vs self-assessed vs level not stated; missing data is not inability
+- [x] Tests: test_recruitment.py 90/90, tst_compat 14/14, tst_controller (bridge), tst_community
+      (recruit strip, Find members, profile, invitation link, applications; phones 320/390/430)
+- [ ] Not verified: the WebAssembly build (copy-to-clipboard in the browser, the link page on Render)
+- [ ] Not built: "request more information" (no channel for it besides the decision message),
+      team logo upload
+
 ## Identity, sign-in, email, phones (branch `identity-auth-mobile`, 2026-11-22)
 
 Built from the "premium collaboration experience" prompt. Details: `Phase-2/web/README-WEB.md`.

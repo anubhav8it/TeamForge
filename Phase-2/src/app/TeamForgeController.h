@@ -2,6 +2,7 @@
 
 #include "AppLog.h"
 
+#include "core/Compatibility.h"
 #include "core/CoverageOnlyStrategy.h"
 #include "core/Interest.h"
 #include "core/JsonStorage.h"
@@ -223,6 +224,17 @@ public:
     // strategy): a participant's fit for an opportunity. Same shape as evaluateCandidate.
     Q_INVOKABLE QVariantMap evaluateFit(const QString& studentId, const QString& requirementId);
 
+    // --- Community team recruitment (TeamForgeRecruitment.cpp) -----------------------------
+    // Compatibility of a person with a Community team (core/Compatibility.h): `team` is the hub's
+    // team map (requiredSkills, maxMembers, openRoles, members or memberStudentIds, event),
+    // `person` a hub profile (id, name, headline, studentId, skills, links) plus optional
+    // applicationSkills / expressedInterest.
+    Q_INVOKABLE QVariantMap teamCompatibility(const QVariantMap& team, const QVariantMap& person) const;
+    // Per required skill: covered / partial / missing by the current members.
+    Q_INVOKABLE QVariantList teamSkillCoverage(const QVariantMap& team) const;
+    // A participant profile as a team leader sees it (skills with levels, projects, education).
+    Q_INVOKABLE QVariantMap participantCard(const QString& studentId) const;
+
     // --- profiles and projects -------------------------------------------------------------
     // Add-or-update by id (developer). Maps use the same keys as the JSON files; skills may be
     // given as {"skill": level} or [{"skill": ..., "level"/"minLevel": ...}].
@@ -406,6 +418,7 @@ private:
     bool allowed(Permission permission) const; // require() without the throw, for read-only queries
     bool isDeveloperView() const { return workspace_ == QLatin1String("developer") || workspace_.isEmpty(); }
 
+    teamforge::TeamNeeds teamNeedsFrom(const QVariantMap& team) const;
     bool loadData(); // reload() without the permission check (startup)
     // The participant profile in use: the session's own profile, or the preview profile while a
     // developer previews the participant workspace.

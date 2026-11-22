@@ -112,6 +112,10 @@ qt_add_qml_module(teamforge_ui
         ui/community/AnonymousDialog.qml
         ui/community/ApplicationCard.qml
         ui/community/ApplyDialog.qml
+        ui/community/CandidateCard.qml
+        ui/community/CandidateDialog.qml
+        ui/community/CompatibilityView.qml
+        ui/community/FindMembersDialog.qml
         ui/community/CommunityPage.qml
         ui/community/DecisionDialog.qml
         ui/community/EventSettingsDialog.qml
@@ -125,6 +129,8 @@ qt_add_qml_module(teamforge_ui
         ui/community/HubEventDetail.qml
         ui/community/HubEvents.qml
         ui/community/HubHome.qml
+        ui/community/HubInvitations.qml
+        ui/community/HubJoin.qml
         ui/community/HubLabel.qml
         ui/community/HubMessages.qml
         ui/community/HubNotificationRow.qml
@@ -137,8 +143,12 @@ qt_add_qml_module(teamforge_ui
         ui/community/HubTeamCard.qml
         ui/community/HubTeamDetail.qml
         ui/community/HubTeams.qml
+        ui/community/InvitationCard.qml
+        ui/community/InviteDialog.qml
+        ui/community/InviteLinkDialog.qml
         ui/community/PersonDialog.qml
         ui/community/TeamFormDialog.qml
+        ui/community/TeamSkillCoverage.qml
     RESOURCES
         assets/teamforge_logo_dark.png
         assets/teamforge_mark_dark.png
@@ -161,7 +171,7 @@ qt_add_qml_module(teamforge_ui
     SOURCES
         src/app/TeamForgeController.cpp src/app/TeamForgeController.h
         src/app/TeamForgeParticipant.cpp src/app/TeamForgeDeveloper.cpp src/app/TeamForgeRecords.cpp src/app/TeamForgeInterest.cpp
-        src/app/TeamForgeMotivation.cpp src/app/TeamForgeResume.cpp
+        src/app/TeamForgeMotivation.cpp src/app/TeamForgeResume.cpp src/app/TeamForgeRecruitment.cpp
         src/app/BridgeSupport.cpp src/app/BridgeSupport.h
         src/app/AppLog.cpp src/app/AppLog.h
         src/app/SampleData.cpp src/app/SampleData.h
