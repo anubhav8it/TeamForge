@@ -171,6 +171,51 @@ Limits, all optional environment variables: `TEAMFORGE_READ_MAX_MB` (default 4, 
 `TEAMFORGE_READS_PER_HOUR` per account (default 10), `TEAMFORGE_READS_PER_MINUTE` for the whole
 server (default 15; F0 allows 20). On F0, Azure reads only the first two pages of a PDF.
 
+### Account emails: password reset, email confirmation, decisions (set up once)
+
+TeamForge sends emails through a **transactional email provider**, chosen with `EMAIL_PROVIDER`
+(`web/email_service.py`; one small adapter per provider, so it can be changed later). Built in:
+**Brevo**, because it needs no domain of your own: a verified sender address is enough, and the
+free plan allows 300 emails a day.
+
+Without these settings everything still works: "Forgot password?" answers as usual, but no email
+is sent (the server log says so), and nothing pretends an email was delivered.
+
+1. Create a free account at brevo.com.
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender**: the address emails come from
+   (for example the team's Gmail). Brevo emails it a confirmation link: click it.
+   (Later, with a domain of your own, verify the domain there too: emails from a verified domain
+   land in spam far less often than from a Gmail address.)
+3. **SMTP & API → API keys → Generate a new API key**. Copy it; it is shown once. It is a
+   secret: put it only in Render's settings, never in the repository or a chat.
+4. On Render: your web service → **Environment** → add:
+
+   | Key | Value |
+   |---|---|
+   | `EMAIL_PROVIDER` | `brevo` |
+   | `EMAIL_API_KEY` | the key from step 3 (mark it secret) |
+   | `EMAIL_FROM` | the sender address from step 2 |
+   | `EMAIL_FROM_NAME` | `TeamForge` |
+   | `APP_BASE_URL` | `https://teamforge-geu.onrender.com` (links in emails are built from this, never from the request) |
+
+   Save; Render restarts the service. On Azure Container Apps the same five go into the app's
+   secrets and environment variables.
+5. Test: sign out, choose **Forgot password?**, enter your address. The email should arrive within
+   a minute (check spam the first time). Brevo's **Transactional → Logs** shows each email's status.
+
+Emails TeamForge sends: email confirmation and a welcome (on registration), password reset,
+application approved / not accepted (teams and events), invitation to apply (after an anonymous
+message), removal from a team. People can turn the team and application emails off in
+Community → Profile. Team offers are not a TeamForge feature, so there is no offer email.
+
+Password reset, step by step: the person asks on `/forgot` (the answer is the same whether or
+not the address has an account); the server makes a random token, stores only its SHA-256 with a
+30-minute expiry and emails a link to `/reset`; the page sends the token and the new password back
+in a POST; the server checks it is unused and unexpired, saves the new password with the same
+PBKDF2 hashing as registration, uses the token up and **signs the account out everywhere**.
+Requests are rate-limited per address and per IP. Email confirmation works the same way (48 hours;
+the `/verify` page asks for a click, so email scanners cannot use the link up).
+
 ### Render free plan: what to expect
 
 * The free web service **sleeps after 15 minutes without visitors**; the next visit waits about a
@@ -243,6 +288,37 @@ deadlines, capacity under simultaneous approvals, anonymity, rate limits, restar
 set `TEAMFORGE_TEST_SERVER`, optionally `TEAMFORGE_SHOTS` for screenshots);
 `node web/tests/test_appjs.mjs` (also `TF_hub`).
 
+### One identity per person, and profile photos
+
+Every account has one identity, the Community profile row on the server (name, academic details,
+photo, colour), and the app shows that same identity wherever the person appears: the home
+greeting, the sidebar, My profile, Community, team members, chat, applications, notifications and
+the Host workspace's participant lists. It works through one component (`ui/components/Avatar.qml`):
+
+* The account is linked to the participant profile it uses in the app (saved in its session),
+  so `Avatar { seed: participantId }` finds the account's photo and colour (`Hub.identityForStudent`).
+* Without a photo: the initials of the real name ("Priya Nair" -> PN) on the person's own colour,
+  the same everywhere. Sample participants without an account keep initials on a colour from their id.
+* Name and academic details come from the participant profile (onboarding / My profile) and are
+  copied to the account when it is saved, so there is one name everywhere.
+* Photos: chosen in onboarding (step 1), My profile or Community → Profile; positioned and zoomed
+  in a crop dialog; turned into a small JPEG in the app (phone photos are turned upright); stored
+  on the server in their own table, one per account, and referenced by URL from the profile
+  (`/api/hub/photos/<id>?v=<n>`); a new photo replaces the old one, so nothing piles up. There is
+  no separate file storage in this hosting setup (no Blob storage), so photos live in PostgreSQL,
+  kept small (at most 80 KB) and out of the profile rows that lists read.
+* Teams have their own identity: initials on a rounded square (people are circles).
+
+### Phones
+
+Below 760 px wide the app switches to a phone layout: a top bar with a menu (the navigation as a
+drawer), the notification bell, and bottom tabs in the Participant workspace. Participant pages
+and the Community lay themselves out in one column; Messages and Anonymous show the list first and
+open a conversation full screen with a back button; filter rows that do not fit scroll sideways.
+The Host and Developer workspaces (big tables and team building) keep a desktop width on phones
+and scroll sideways, with a note. Tested at 320, 390 and 430 px wide (`tests/tst_screens` and
+`tests/tst_community` with `TEAMFORGE_SHOT_WIDTH`), including a check that nothing sticks out.
+
 ## Data and security notes
 
 * Passwords are stored only as PBKDF2-SHA256 hashes with a random salt. Sessions are random tokens
@@ -267,9 +343,12 @@ set `TEAMFORGE_TEST_SERVER`, optionally `TEAMFORGE_SHOTS` for screenshots);
 ```
 web/
   server.py              accounts, data API, static files (Python standard library + psycopg)
-  hub.py                 Community: teams, chat, applications, anonymous requests, notifications
+  hub.py                 Community: teams, chat, applications, anonymous requests, notifications, identities, photos
+  email_service.py       email provider adapter (Brevo / outbox for development / off)
+  email_templates.py     the branded emails
   requirements.txt       psycopg (only for PostgreSQL)
-  static/login.html      sign-in / create account (browser can save the password)
+  static/login.html      sign-in / create account (browser can save the password; show/hide password)
+  static/forgot.html, reset.html, verify.html   password reset and email confirmation
   static/admin.html      roles, reported anonymous conversations, data reset (admins)
   static/app/index.html  loads TeamForge; app.js = data sync; app.css
   static/app/TeamForge.{js,wasm}, qtloader.js   ← copied from build-wasm/

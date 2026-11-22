@@ -17,6 +17,8 @@ Item {
     signal navigate(string route)
     signal notify(string message)
 
+    readonly property bool narrow: width < 720
+    readonly property int margin: narrow ? 14 : 24
     property var event: null
     property bool loading: true
     property string error: ""
@@ -105,8 +107,8 @@ Item {
             // ------------------------------------------------------------ header
             Surface {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.topMargin: 18
                 implicitHeight: header.implicitHeight + 40
                 radius: Theme.radius
@@ -119,7 +121,7 @@ Item {
                     anchors.top: parent.top
                     anchors.margins: 20
                     spacing: 10
-                    RowLayout {
+                    Flow {
                         Layout.fillWidth: true
                         spacing: 8
                         Chip { visible: detail.event && detail.event.type !== ""; text: detail.event ? detail.event.type : ""; tone: "tint"; tint: Theme.typeColor(detail.event ? detail.event.type : "") }
@@ -127,7 +129,6 @@ Item {
                             text: !detail.event ? "" : detail.event.open ? (detail.event.full ? qsTr("Full · waitlist") : qsTr("Open for applications")) : detail.event.closedReason
                             tone: detail.event && detail.event.open ? (detail.event.full ? "warning" : "success") : "muted"
                         }
-                        Item { Layout.fillWidth: true }
                         HubStatus { visible: detail.event && !!detail.event.myApplication; status: detail.event && detail.event.myApplication ? detail.event.myApplication.status : "" }
                     }
                     TfText { text: detail.event ? detail.event.name : ""; variant: "title"; font.pixelSize: 26; Layout.fillWidth: true }
@@ -196,7 +197,7 @@ Item {
                         }
                         TfButton {
                             visible: detail.event && detail.event.configured && !detail.manage
-                            text: qsTr("Message organiser anonymously")
+                            text: detail.narrow ? qsTr("Ask anonymously") : qsTr("Message organiser anonymously")
                             compact: true
                             onClicked: anonDialog.openFor("event", detail.event.id, detail.event.name)
                         }
@@ -221,7 +222,7 @@ Item {
 
             Segmented {
                 visible: detail.manage
-                Layout.leftMargin: 24
+                Layout.leftMargin: detail.margin
                 options: [{ text: qsTr("Overview"), value: "overview" },
                           { text: qsTr("Applications  %1").arg(detail.event ? detail.event.pendingCount ?? 0 : 0), value: "applications" }]
                 currentValue: detail.currentTab
@@ -232,8 +233,8 @@ Item {
             GridLayout {
                 visible: detail.currentTab === "overview"
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.bottomMargin: 24
                 columns: detail.width > 1000 ? 2 : 1
                 columnSpacing: Theme.gap
@@ -308,10 +309,12 @@ Item {
             ColumnLayout {
                 visible: detail.currentTab === "applications"
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: detail.margin
+                Layout.rightMargin: detail.margin
                 Layout.bottomMargin: 24
                 spacing: 10
+                ScrollRow {
+                    Layout.fillWidth: true
                 Segmented {
                     options: [
                         { text: qsTr("Pending  %1").arg(detail.apps.counts.pending ?? 0), value: "pending" },
@@ -322,6 +325,7 @@ Item {
                     ]
                     currentValue: detail.appStatus
                     onActivated: value => { detail.appStatus = value; detail.loadApps(1) }
+                }
                 }
                 HubSkeleton { visible: detail.appsLoading && detail.apps.items.length === 0; rows: 2; Layout.fillWidth: true }
                 EmptyState {

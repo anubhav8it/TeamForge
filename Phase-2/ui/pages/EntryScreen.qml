@@ -22,6 +22,8 @@ Rectangle {
         { key: "developer", title: qsTr("DEVELOPER"), text: qsTr("Monitor, test and manage TeamForge"), glyph: "⌘" }
     ]
     readonly property bool narrow: width < 980
+    // Phones: smaller logo and wordmark; the screen scrolls when the cards do not fit.
+    readonly property bool phone: width < 600
     readonly property bool shortWindow: height < 760
     // Pointer position over the screen, each in [-1, 1] (0 when the pointer is away).
     property real pointerX: 0
@@ -178,25 +180,34 @@ Rectangle {
 
     // --- content ---------------------------------------------------------------------------------
 
+    Flickable {
+        id: scroller
+        anchors.fill: parent
+        contentWidth: width
+        contentHeight: Math.max(height, content.implicitHeight + 56)
+        interactive: contentHeight > height
+        boundsBehavior: Flickable.StopAtBounds
+        clip: true
+
     ColumnLayout {
         id: content
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: -8
-        width: Math.min(entry.width - 64, 1180)
+        x: (scroller.width - width) / 2
+        y: Math.max(28, (scroller.height - implicitHeight) / 2 - 8)
+        width: Math.min(entry.width - (entry.phone ? 32 : 64), 1180)
         spacing: 0
 
         LogoMark3D {
             id: logo
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: Math.round(Math.max(170, Math.min(300, entry.height * (entry.shortWindow ? 0.25 : 0.29))))
+            Layout.preferredWidth: entry.phone ? 150 : Math.round(Math.max(170, Math.min(300, entry.height * (entry.shortWindow ? 0.25 : 0.29))))
             Layout.preferredHeight: Math.round(Layout.preferredWidth * 454 / 844)
             opacity: entry.stage(0)
             scale: 0.86 + 0.14 * entry.stage(0)
 
         }
 
-        // Wordmark: white fading to silver, a touch of coral at the base (the gradient is drawn
-        // through the letters; the text itself stays on top, invisible, for screen readers).
+        // Wordmark: white fading to silver, a touch of coral at the base, drawn through the letters
+        // over the same text in solid silver (which shows alone if the effect cannot render).
         Item {
             id: wordmark
             implicitWidth: wordText.implicitWidth
@@ -205,6 +216,14 @@ Rectangle {
             Layout.topMargin: entry.shortWindow ? 26 : 38
             opacity: entry.stage(1)
 
+            TfText {
+                id: wordText
+                text: "TEAMFORGE"
+                font.pixelSize: entry.phone ? Math.max(30, Math.min(52, Math.round(entry.width / 9))) : entry.shortWindow ? 56 : 66
+                font.weight: Font.ExtraBold
+                font.letterSpacing: (entry.phone ? 5 : 10) + (1 - entry.stage(1)) * 10
+                color: "#E3E8F1" // drawn first: if the gradient effect cannot render, this stays
+            }
             TfText {
                 id: wordMask
                 visible: false
@@ -229,14 +248,6 @@ Rectangle {
                 source: wordFill
                 maskEnabled: true
                 maskSource: wordMask
-            }
-            TfText {
-                id: wordText
-                text: "TEAMFORGE"
-                font.pixelSize: entry.shortWindow ? 56 : 66
-                font.weight: Font.ExtraBold
-                font.letterSpacing: 10 + (1 - entry.stage(1)) * 10
-                color: "transparent"
             }
         }
         TfText {
@@ -263,6 +274,8 @@ Rectangle {
 
         GridLayout {
             columns: entry.narrow ? 1 : 3
+            // never wider than the column (long card texts wrap instead)
+            Layout.maximumWidth: content.width
             columnSpacing: 20
             rowSpacing: 14
             Layout.fillWidth: true
@@ -296,8 +309,10 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.preferredWidth: 1
+                    Layout.minimumWidth: 0
+                    Layout.maximumWidth: content.width
                     // At least the designed height; taller when the text wraps.
-                    implicitHeight: Math.max(entry.narrow ? 120 : entry.shortWindow ? 214 : 244,
+                    implicitHeight: Math.max(entry.phone ? 150 : entry.narrow ? 120 : entry.shortWindow ? 214 : 244,
                                              cardLayout.implicitHeight + (entry.narrow ? 40 : 52))
 
                     readonly property real arrive: entry.stage(4 + index * 0.6)
@@ -409,7 +424,7 @@ Rectangle {
                             id: cardLayout
                             anchors.fill: parent
                             anchors.margins: entry.narrow ? 20 : 26
-                            columns: entry.narrow ? 3 : 1
+                            columns: entry.narrow && !entry.phone ? 3 : 1
                             columnSpacing: 18
                             rowSpacing: 12
 
@@ -478,7 +493,7 @@ Rectangle {
                                 implicitWidth: enterRow.implicitWidth + 28
                                 implicitHeight: 40
                                 radius: 20
-                                Layout.alignment: entry.narrow ? Qt.AlignVCenter : Qt.AlignLeft
+                                Layout.alignment: entry.narrow && !entry.phone ? Qt.AlignVCenter : Qt.AlignLeft
                                 color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot || card.picked ? 0.2 : 0.0)
                                 border.width: 1
                                 border.color: Qt.rgba(card.tone.r, card.tone.g, card.tone.b, card.hot || card.picked ? 0.55 : 0.22)
@@ -549,9 +564,14 @@ Rectangle {
             font.pixelSize: Theme.fontSm
             font.weight: Font.DemiBold
             color: Theme.textMuted
+            wrapMode: Text.WordWrap
+            elide: Text.ElideNone
+            horizontalAlignment: Text.AlignHCenter
+            Layout.maximumWidth: content.width
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: entry.shortWindow ? 24 : 34
             opacity: entry.stage(6)
         }
+    }
     }
 }

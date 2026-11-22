@@ -29,7 +29,7 @@ from hub import HUB_TABLES  # noqa: E402  (teams, chat, applications, anonymous 
 
 # Parents before children (sessions and user_files refer to users).
 TABLES = {
-    "users": ["id", "email", "password_hash", "role", "created_at", "last_login"],
+    "users": ["id", "email", "password_hash", "role", "created_at", "last_login", "email_verified_at"],
     "sessions": ["token_hash", "user_id", "expires_at"],
     "shared_files": ["name", "content", "version", "updated_at", "updated_by"],
     "user_files": ["user_id", "name", "content", "version", "updated_at"],

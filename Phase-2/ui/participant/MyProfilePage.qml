@@ -16,6 +16,8 @@ TfPage {
 
     readonly property var me: Backend.myProfile
     readonly property var skills: me.rankedSkills ?? []
+    readonly property bool narrow: width < 720
+    readonly property int margin: narrow ? 14 : 24
 
     ScrollView {
         anchors.fill: parent
@@ -31,31 +33,42 @@ TfPage {
             // Header
             Surface {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: page.margin
+                Layout.rightMargin: page.margin
                 implicitHeight: header.implicitHeight + 48
                 radius: Theme.radius
                 color: Theme.surface
                 border.color: Theme.border
-                RowLayout {
+                GridLayout {
                     id: header
                     anchors.fill: parent
-                    anchors.margins: 24
-                    spacing: 22
-                    Avatar {
+                    anchors.margins: page.narrow ? 16 : 24
+                    columns: page.narrow ? 1 : 3
+                    columnSpacing: 22
+                    rowSpacing: 14
+                    // The person's photo, changeable here; saved at once and shown everywhere.
+                    PhotoPicker {
+                        id: photoPicker
+                        Layout.alignment: Qt.AlignTop
+                        Layout.preferredWidth: 150
+                        size: 92
                         name: page.me.name ?? ""
                         seed: page.me.id ?? ""
-                        size: 92
-                        Layout.alignment: Qt.AlignTop
+                        onCropped: url => Hub.uploadPhoto(url, status => {
+                            photoPicker.pending = ""
+                            if (status !== 200) photoPicker.error = qsTr("The photo could not be saved. Try again.")
+                        })
+                        onRemoved: Hub.removePhoto(() => { photoPicker.removedPending = false })
                     }
                     ColumnLayout {
                         spacing: 6
                         Layout.fillWidth: true
                         TfText {
                             text: page.me.name ?? ""
-                            font.pixelSize: 32
+                            font.pixelSize: page.narrow ? 26 : 32
                             font.weight: Font.ExtraBold
                             font.letterSpacing: -0.8
+                            wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
                         TfText {
@@ -90,17 +103,19 @@ TfPage {
                     TfButton {
                         text: qsTr("Edit profile")
                         variant: "primary"
-                        Layout.alignment: Qt.AlignTop
+                        Layout.alignment: page.narrow ? Qt.AlignLeft : Qt.AlignTop
                         onClicked: page.editProfile()
                     }
                 }
             }
 
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
-                spacing: Theme.gap
+                Layout.leftMargin: page.margin
+                Layout.rightMargin: page.margin
+                columns: page.width >= 900 ? 2 : 1
+                columnSpacing: Theme.gap
+                rowSpacing: Theme.gap
 
                 // Top skills and experience
                 Panel {
@@ -146,6 +161,7 @@ TfPage {
                                         text: Theme.levelName(skillRow.modelData.level)
                                         variant: "secondary"
                                         font.weight: Font.Bold
+                                        visible: !page.narrow
                                         Layout.preferredWidth: 124
                                     }
                                 }
@@ -157,6 +173,7 @@ TfPage {
                 ColumnLayout {
                     spacing: Theme.gap
                     Layout.preferredWidth: 400
+                    Layout.fillWidth: page.width < 900
                     Layout.alignment: Qt.AlignTop
                     Panel {
                         title: qsTr("Experience")
@@ -207,8 +224,8 @@ TfPage {
                 subtitle: (details.totalYears ?? -1) >= 0 ? qsTr("%1 years of experience").arg(details.totalYears)
                                                           : qsTr("As added to your profile")
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: page.margin
+                Layout.rightMargin: page.margin
                 id: detailsPanel
                 ColumnLayout {
                     anchors.left: parent.left
@@ -263,8 +280,8 @@ TfPage {
                 subtitle: qsTr("Where your profile fits best right now")
                 padded: false
                 Layout.fillWidth: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: page.margin
+                Layout.rightMargin: page.margin
                 ColumnLayout {
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -306,7 +323,7 @@ TfPage {
                                     }
                                 }
                                 Chip {
-                                    visible: (fitRow.modelData.interestStatus ?? "") !== ""
+                                    visible: (fitRow.modelData.interestStatus ?? "") !== "" && !page.narrow
                                     text: Theme.interestLabel(fitRow.modelData.interestStatus ?? "")
                                     tone: Theme.interestTone(fitRow.modelData.interestStatus ?? "")
                                 }
@@ -316,6 +333,7 @@ TfPage {
                                     color: Theme.scoreColor(fitRow.modelData.score)
                                 }
                                 TfButton {
+                                    visible: !page.narrow
                                     text: qsTr("Why this match?")
                                     compact: true
                                     onClicked: page.whyThisMatch(fitRow.modelData.id)

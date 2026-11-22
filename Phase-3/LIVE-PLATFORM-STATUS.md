@@ -63,6 +63,31 @@ Each block is marked complete only after it has been tested. Newest findings fir
 - [ ] Key Vault decision implemented
 - [ ] Block 1 completion report
 
+## Identity, sign-in, email, phones (branch `identity-auth-mobile`, 2026-11-22)
+
+Built from the "premium collaboration experience" prompt. Details: `Phase-2/web/README-WEB.md`.
+
+- [x] One identity per person: the account's profile (name, academics, photo, colour) is linked to
+      the participant profile it uses; one `Avatar` component everywhere looks it up, so the same
+      person shows the same photo or the same initials and colour on every screen (fixes problem 2
+      above for display; matching still uses the participant records)
+- [x] Profile photos: upload in onboarding, My profile and Community profile; crop and zoom;
+      small JPEG stored on the server in its own table, referenced by URL; old photos replaced;
+      photos stored inside profile rows are migrated on start
+- [x] Teams have their own identity (initials on a rounded square)
+- [x] Show/hide password on every password field; Forgot password with a real reset flow
+      (hashed single-use 30-minute tokens, same answer for unknown emails, rate limits, sessions
+      signed out after a reset); email confirmation
+- [x] Email: provider adapter (`web/email_service.py`, Brevo + a development outbox), branded
+      templates, emails for decisions, invitations and team removal with an opt-out
+- [ ] **Owner action:** Brevo account, verified sender, API key and APP_BASE_URL on Render
+      (README-WEB, "Account emails"). Until then no email is sent (nothing claims otherwise)
+- [x] Phones: top bar + drawer + bottom tabs; participant pages and the Community in one column;
+      chat and anonymous conversations open full screen with back; checked at 320 / 390 / 430 px
+      with an automated "nothing sticks out" check
+- [ ] Not done: Host and Developer workspaces stay desktop-width on phones (scroll sideways);
+      the WebAssembly build and the phone keyboard are only verifiable after the CI build
+
 ## Community: teams, messaging, applications (branch `team-hub`, 2026-11-22)
 
 Built from the "Team Forge feature expansion" prompt; covers most of Blocks 5 and 6 below. Details:

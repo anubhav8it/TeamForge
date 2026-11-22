@@ -64,7 +64,10 @@
         <label class="field"><span>Email</span>
           <input type="email" name="email" id="signin-email" autocomplete="username" required></label>
         <label class="field"><span>Password</span>
-          <input type="password" name="password" id="signin-password" autocomplete="current-password" required></label>
+          <span class="password-wrap">
+          <input type="password" name="password" id="signin-password" autocomplete="current-password" required>
+          <button type="button" class="reveal" data-reveal-for="signin-password" aria-label="Show password"></button></span></label>
+        <p class="form-aside"><a class="link" href="/forgot" id="forgot-link">Forgot password?</a></p>
         <button class="btn btn-primary" type="submit">Sign in</button>
       </form>
 
@@ -72,10 +75,14 @@
         <label class="field"><span>Email</span>
           <input type="email" name="email" id="register-email" autocomplete="username" required></label>
         <label class="field"><span>Password</span>
-          <input type="password" name="password" id="register-password" autocomplete="new-password" minlength="8" required></label>
+          <span class="password-wrap">
+          <input type="password" name="password" id="register-password" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="reveal" data-reveal-for="register-password" aria-label="Show password"></button></span></label>
         <p class="hint">At least 8 characters.</p>
         <label class="field"><span>Confirm password</span>
-          <input type="password" name="confirm" id="register-confirm" autocomplete="new-password" minlength="8" required></label>
+          <span class="password-wrap">
+          <input type="password" name="confirm" id="register-confirm" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="reveal" data-reveal-for="register-confirm" aria-label="Show password"></button></span></label>
         <button class="btn btn-primary" type="submit">Create account</button>
       </form>
     </section>
@@ -86,6 +93,7 @@
 </main>
 <script src="/static/js/backdrop.js"></script>
 <script src="/static/js/ambience.js"></script>
+<script src="/static/js/password.js"></script>
 <script src="/static/js/login.js"></script>
 </body>
 </html>

@@ -1,12 +1,17 @@
 #include "HubClient.h"
+#include "Overflow.h"
 #include "TeamForgeController.h"
 
+#include <QBuffer>
 #include <QDir>
+#include <QImage>
+#include <QPainter>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTemporaryDir>
+#include <QSignalSpy>
 #include <QTest>
 #include <QtQml/QQmlExtensionPlugin>
 
@@ -57,6 +62,7 @@ private slots:
     void everyScreenOpens();
     void chatSendsAndShowsMessages();
     void anonymousInboxHidesTheSender();
+    void samePhotoEverywhere();
     void noQmlWarnings();
 
 private:
@@ -82,7 +88,9 @@ void TestCommunity::initTestCase()
     engine_->loadFromModule("TeamForge", "Main");
     QVERIFY(!engine_->rootObjects().isEmpty());
     window_ = qobject_cast<QQuickWindow *>(engine_->rootObjects().first());
-    window_->resize(1440, 900);
+    // TEAMFORGE_SHOT_WIDTH / _HEIGHT: e.g. 390 x 844 to check the phone layout.
+    const int w = qEnvironmentVariableIntValue("TEAMFORGE_SHOT_WIDTH"), h = qEnvironmentVariableIntValue("TEAMFORGE_SHOT_HEIGHT");
+    window_->resize(w > 0 ? w : 1440, h > 0 ? h : 900);
     QVERIFY(QTest::qWaitForWindowExposed(window_));
     hub_ = engine_->singletonInstance<HubClient *>("TeamForge", "Hub");
     QVERIFY(hub_);
@@ -169,6 +177,10 @@ void TestCommunity::everyScreenOpens()
     hub_->setRoute(route);
     QTRY_VERIFY2_WITH_TIMEOUT(anyVisibleTextContaining(expected), qPrintable(route + " shows " + expected), 6000);
     QTest::qWait(400); // let skeletons and fades finish for the screenshot
+    if (window_->width() <= 430) { // phone sizes: nothing may stick out sideways
+        const QStringList over = horizontalOverflow(window_);
+        QVERIFY2(over.isEmpty(), qPrintable(route + ": " + over.join(QStringLiteral("; "))));
+    }
     shot(QString::fromLatin1(QTest::currentDataTag()).replace(QLatin1Char(' '), QLatin1Char('-')));
 }
 
@@ -178,7 +190,16 @@ void TestCommunity::chatSendsAndShowsMessages()
     HubChatModel *chat = hub_->chat();
     QTRY_COMPARE_WITH_TIMEOUT(chat->teamId(), teamId_, 5000);
     QTRY_VERIFY_WITH_TIMEOUT(chat->rowCount() >= 4 && chat->live(), 6000);
-    QVERIFY(anyVisibleTextContaining(QStringLiteral("Pushed the login screen mock-up")));
+    // The newest page holds the demo conversation, or (after earlier runs against the same server
+    // pushed it past the first page) messages from those runs. Checked in the model, not on screen:
+    // on a short phone screen it may be scrolled out of view.
+    bool hasKnownMessage = false;
+    for (int row = 0; row < chat->rowCount(); ++row) {
+        const QString body = chat->data(chat->index(row), HubChatModel::BodyRole).toString();
+        hasKnownMessage |= body.contains(QStringLiteral("Pushed the login screen mock-up"))
+                        || body.contains(QStringLiteral("Hello from the offscreen test"));
+    }
+    QVERIFY(hasKnownMessage);
     const int before = chat->rowCount();
     QCOMPARE(chat->send(QStringLiteral("   ")), QStringLiteral("Message is required."));
     QCOMPARE(chat->send(QStringLiteral("Hello from the offscreen test")), QString());
@@ -195,6 +216,51 @@ void TestCommunity::anonymousInboxHidesTheSender()
     QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("Anonymous → Rocket Lab")), 5000);
     QVERIFY(!anyVisibleTextContaining(QStringLiteral("Oscar Negi")));
     QVERIFY(!anyVisibleTextContaining(QStringLiteral("oscar@demo.test")));
+}
+
+// One identity: a photo uploaded once shows for the account wherever it appears, found by the
+// participant profile it uses (sidebar, home, host lists) and by its Community profile (chat).
+void TestCommunity::samePhotoEverywhere()
+{
+    // A generated test picture (not a person): 200 x 200, two colours.
+    QImage picture(200, 200, QImage::Format_RGB32);
+    picture.fill(QColor("#3B82F6"));
+    QPainter painter(&picture);
+    painter.fillRect(50, 50, 100, 100, QColor("#F0434A"));
+    painter.end();
+    QByteArray png;
+    QBuffer buffer(&png);
+    buffer.open(QIODevice::WriteOnly);
+    picture.save(&buffer, "PNG");
+    QSignalSpy ready(hub_, &HubClient::avatarSourceReady);
+    hub_->avatarBytes(png);
+    QCOMPARE(ready.count(), 1);
+    const QString cropped = hub_->cropAvatar(25, 25, 150);
+    QVERIFY(cropped.startsWith(QStringLiteral("data:image/jpeg;base64,")) || cropped.startsWith(QStringLiteral("data:image/png;base64,")));
+    const QString before = hub_->profile().value(QStringLiteral("avatar")).toString(); // from an earlier run, if any
+    hub_->uploadPhoto(cropped);
+    hub_->syncIdentity(QStringLiteral("Lee Sharma"), QStringLiteral("B.Tech CSE"), QStringLiteral("tf-001"));
+    // the account's identity, by participant profile id, gets the new photo reference ...
+    QTRY_VERIFY_WITH_TIMEOUT(hub_->identityForStudent(QStringLiteral("tf-001")).value(QStringLiteral("avatar")).toString()
+                                 .startsWith(QStringLiteral("/api/hub/photos/"))
+                             && hub_->identityForStudent(QStringLiteral("tf-001")).value(QStringLiteral("avatar")).toString() != before, 8000);
+    const QString ref = hub_->identityForStudent(QStringLiteral("tf-001")).value(QStringLiteral("avatar")).toString();
+    // ... and the picture itself arrives once and is shared by every avatar
+    hub_->photo(ref);
+    QTRY_VERIFY_WITH_TIMEOUT(hub_->photo(ref).startsWith(QStringLiteral("data:image/")), 8000);
+    // the chat shows the same reference for the author
+    hub_->setRoute(QStringLiteral("messages/%1").arg(teamId_));
+    HubChatModel *chat = hub_->chat();
+    QVERIFY(chat->send(QStringLiteral("Photo check")).isEmpty());
+    QTRY_VERIFY_WITH_TIMEOUT(chat->rowCount() > 0
+                                 && chat->data(chat->index(chat->rowCount() - 1), HubChatModel::AuthorAvatarRole).toString() == ref, 8000);
+    // a sample participant record without an account has no identity: initials, no photo
+    QVERIFY(hub_->identityForStudent(QStringLiteral("tf-555")).isEmpty());
+    QTest::qWait(600);
+    shot(QStringLiteral("chat-with-photo"));
+    hub_->setRoute(QStringLiteral("home"));
+    QTest::qWait(800);
+    shot(QStringLiteral("home-with-photo"));
 }
 
 void TestCommunity::noQmlWarnings()

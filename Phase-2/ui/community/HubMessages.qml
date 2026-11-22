@@ -16,6 +16,8 @@ Item {
     signal navigate(string route)
     signal notify(string message)
 
+    // Phones: the list first; choosing a chat opens it full screen, with a back button.
+    readonly property bool narrow: width < 720
     property var conversations: []
     property bool loadingList: true
     readonly property var current: conversations.find(c => c.teamId === teamId) ?? null
@@ -25,7 +27,7 @@ Item {
             loadingList = false
             if (status === 200) {
                 conversations = data.items
-                if (teamId === 0 && conversations.length > 0)
+                if (teamId === 0 && conversations.length > 0 && !narrow)
                     messages.navigate("messages/" + conversations[0].teamId)
             }
         })
@@ -51,11 +53,13 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 20
+        anchors.margins: messages.narrow ? 8 : 20
         spacing: Theme.gap
 
         // ---------------------------------------------------------------- conversations
         Surface {
+            visible: !messages.narrow || messages.teamId === 0
+            Layout.fillWidth: messages.narrow
             Layout.preferredWidth: 300
             Layout.fillHeight: true
             radius: Theme.radius
@@ -106,7 +110,7 @@ Item {
                             anchors.leftMargin: 10
                             anchors.rightMargin: 8
                             spacing: 10
-                            HubAvatar { person: ({ name: conv.modelData.name, color: Theme.avatarColor(conv.modelData.name) }); size: 38 }
+                            TeamAvatar { name: conv.modelData.name; size: 38 }
                             ColumnLayout {
                                 spacing: 0
                                 Layout.fillWidth: true
@@ -144,6 +148,7 @@ Item {
 
         // ---------------------------------------------------------------- the conversation
         Surface {
+            visible: !messages.narrow || messages.teamId > 0
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Theme.radius
@@ -166,10 +171,19 @@ Item {
                 // header
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.margins: 14
+                    Layout.margins: messages.narrow ? 8 : 14
                     spacing: 10
-                    HubAvatar {
-                        person: ({ name: messages.current ? messages.current.name : "", color: Theme.avatarColor(messages.current ? messages.current.name : "") })
+                    TfButton {
+                        visible: messages.narrow
+                        text: "‹"
+                        variant: "ghost"
+                        compact: true
+                        font.pixelSize: 22
+                        Accessible.name: qsTr("Back to the list")
+                        onClicked: messages.navigate("messages")
+                    }
+                    TeamAvatar {
+                        name: messages.current ? messages.current.name : ""
                         size: 36
                     }
                     ColumnLayout {

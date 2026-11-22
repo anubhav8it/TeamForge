@@ -71,7 +71,7 @@ await sleep(300);
 check("re-saved unchanged file is not uploaded", (await versions())["students.json"] === v0["students.json"]);
 
 // 2. a real profile change -> saved, version +1
-const s = JSON.parse(fsMem["students.json"]); s.students[2].summary = "Changed from the browser test";
+const s = JSON.parse(fsMem["students.json"]); s.students[2].summary = `Changed from the browser test ${Date.now()}`; // unique, so reruns change something
 globalThis.TF_upload("students.json", JSON.stringify(s, null, 4));
 await sleep(500);
 const v1 = await versions();
@@ -85,15 +85,15 @@ const boot = await (await rawFetch("/api/bootstrap")).json();
 check("session.json saved for this account", JSON.parse(boot.files["session.json"]).myProfileId === "tf-002");
 
 // 4. someone else saves students.json first -> this page's next change is refused, notice shown
-const other = JSON.parse(boot.files["students.json"]); other.students[3].summary = "Someone else";
+const other = JSON.parse(boot.files["students.json"]); const someoneElse = `Someone else ${Date.now()}`; other.students[3].summary = someoneElse;
 const r = await rawFetch("/api/files/students.json", { method: "PUT", headers: { "Content-Type": "application/json", "X-TeamForge": "1" },
   body: JSON.stringify({ content: JSON.stringify(other), baseVersion: boot.versions["students.json"] }) });
 check("other client saved first", r.status === 200);
-s.students[4].summary = "My second change";
+s.students[4].summary = `My second change ${Date.now()}`;
 globalThis.TF_upload("students.json", JSON.stringify(s, null, 4));
 await sleep(500);
 const after = await (await rawFetch("/api/bootstrap")).json();
-check("stale change did not overwrite the other person's", JSON.parse(after.files["students.json"]).students[3].summary === "Someone else");
+check("stale change did not overwrite the other person's", JSON.parse(after.files["students.json"]).students[3].summary === someoneElse);
 check("conflict notice shown", el("notice").className === "notice error" && /Reload/.test(el("notice-text").textContent), el("notice-text").textContent);
 
 // 5. TF_hub: the Community requests the app makes (src/app/HubClient.cpp)

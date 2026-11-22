@@ -5,7 +5,9 @@
 #include <QAbstractListModel>
 #include <QByteArray>
 #include <QHash>
+#include <QImage>
 #include <QJSValue>
+#include <QSet>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -143,6 +145,9 @@ class HubClient : public QObject
     Q_PROPERTY(QString route READ route WRITE setRoute NOTIFY routeChanged)
     Q_PROPERTY(HubChatModel *chat READ chat CONSTANT)
     Q_PROPERTY(QString anonymityNotice READ anonymityNotice CONSTANT)
+    // Bumped whenever identities or cached photos change, so avatars re-read them.
+    Q_PROPERTY(int identityRevision READ identityRevision NOTIFY identitiesChanged)
+    Q_PROPERTY(int photoRevision READ photoRevision NOTIFY photosChanged)
 
 public:
     explicit HubClient(QObject *parent = nullptr);
@@ -166,6 +171,25 @@ public:
     void setRoute(const QString& route);
     HubChatModel *chat() const { return chat_; }
     static QString anonymityNotice();
+    int identityRevision() const { return identityRevision_; }
+    int photoRevision() const { return photoRevision_; }
+
+    // ---- one identity per person
+    // The account identity ({id, name, avatar, color, studentId}) using participant profile
+    // `studentId`, or {} (a sample record, or not connected). Every avatar asks this, so the same
+    // person looks the same everywhere.
+    Q_INVOKABLE QVariantMap identityForStudent(const QString& studentId) const;
+    // The picture for a photo reference ("/api/hub/photos/7?v=2") as a data: URL, or "" while it
+    // is fetched (photoRevision then changes). data: URLs are returned unchanged.
+    Q_INVOKABLE QString photo(const QString& ref);
+    // After the participant profile is saved: the account's name and academic details follow it,
+    // and the account is linked to it.
+    Q_INVOKABLE void syncIdentity(const QString& name, const QString& program, const QString& studentId);
+    Q_INVOKABLE void uploadPhoto(const QString& dataUrl, const QJSValue& callback = QJSValue());
+    Q_INVOKABLE void removePhoto(const QJSValue& callback = QJSValue());
+    // Crop the picture last picked (avatarSourceReady): a square of `side` source pixels at
+    // (x, y), scaled to a small JPEG. Returns a data: URL, or "" (avatarFailed explains).
+    Q_INVOKABLE QString cropAvatar(double x, double y, double side);
 
     // ---- requests (paths after /api/hub)
     Q_INVOKABLE void get(const QString& path, const QJSValue& callback = QJSValue());
@@ -225,13 +249,18 @@ signals:
     void notificationsChanged();
     void routeChanged();
     void avatarPicked(const QString& dataUrl);
+    // A picture was chosen: crop it (cropAvatar) using this preview of `width` x `height`.
+    void avatarSourceReady(const QString& preview, int width, int height);
     void avatarFailed(const QString& message);
+    void identitiesChanged();
+    void photosChanged();
     // Every successful write, so open pages can reload what it changed.
     void changed(const QString& path);
 
 private:
     void callJs(const QJSValue& callback, int status, const QVariant& data);
     void applySummary(const QVariantMap& summary);
+    void loadIdentities();
     void handleStatus(int status);
     QString encodeAvatar(const QByteArray& bytes, QString *error) const;
 
@@ -244,6 +273,13 @@ private:
     QString statusText_;
     QVariantMap summary_;
     teamforge::hub::NotificationList notifications_;
+    QHash<QString, QVariantMap> identities_; // participant profile id -> account identity
+    QString identityVersion_;
+    int identityRevision_ = 0;
+    QHash<QString, QString> photos_;          // photo reference -> data: URL
+    QSet<QString> photosPending_;
+    int photoRevision_ = 0;
+    QImage avatarSource_;
     QString route_ = QStringLiteral("home");
 #ifndef Q_OS_WASM
     QNetworkAccessManager *network_ = nullptr;

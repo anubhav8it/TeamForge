@@ -27,6 +27,9 @@ Item {
     // Profile details ({projects, education, certifications, achievements, skillYears,
     // totalYears}), usually added from a resume; saved with the profile.
     property var draftDetails: ({})
+    // Profile photo chosen in step 1 (saved to the TeamForge server with the profile).
+    property string draftPhoto: ""
+    property bool photoRemoved: false
 
     readonly property var steps: [qsTr("Profile"), qsTr("Skills"), qsTr("Experience"), qsTr("Ready")]
     readonly property var stepIntros: [
@@ -57,6 +60,8 @@ Item {
     function load() {
         step = 0
         showErrors = false
+        draftPhoto = ""
+        photoRemoved = false
         draftSkills.clear()
         const me = Backend.myProfile
         if (editing && me.id !== undefined) {
@@ -167,8 +172,17 @@ Item {
             }
         }
         const created = !editing
-        if (Backend.saveMyProfile(draft()))
+        if (Backend.saveMyProfile(draft())) {
+            // One identity: the account's name, academic details and photo follow this profile.
+            if (Hub.connected) {
+                Hub.syncIdentity(draftName.trim(), draftProgram.trim(), Backend.myProfileId)
+                if (draftPhoto !== "")
+                    Hub.uploadPhoto(draftPhoto)
+                else if (photoRemoved)
+                    Hub.removePhoto()
+            }
             finished(created)
+        }
     }
 
     onVisibleChanged: if (visible) load()
@@ -177,7 +191,10 @@ Item {
 
     ProfilePicker {
         id: picker
-        onPicked: editor.claimed()
+        onPicked: {
+            Hub.syncIdentity(Backend.myProfile.name ?? "", Backend.myProfile.program ?? "", Backend.myProfileId)
+            editor.claimed()
+        }
     }
     ResumeReviewDrawer {
         id: resumeReview
@@ -194,7 +211,7 @@ Item {
         clip: true
 
         ColumnLayout {
-            width: Math.min(parent.width - 48, 900)
+            width: Math.min(parent.width - (editor.width < 520 ? 24 : 48), 900)
             x: (parent.width - width) / 2
             spacing: 18
 
@@ -343,7 +360,7 @@ Item {
             Surface {
                 Layout.fillWidth: true
                 // Sized to the current step: a StackLayout reports its tallest page.
-                implicitHeight: ((stepStack.children[stepStack.currentIndex] as Item)?.implicitHeight ?? 0) + 56
+                implicitHeight: ((stepStack.children[stepStack.currentIndex] as Item)?.implicitHeight ?? 0) + (editor.width < 520 ? 28 : 56)
                 radius: Theme.radius
                 color: Theme.surface
                 border.color: Theme.border
@@ -351,7 +368,7 @@ Item {
                 StackLayout {
                     id: stepStack
                     anchors.fill: parent
-                    anchors.margins: 28
+                    anchors.margins: editor.width < 520 ? 14 : 28
                     currentIndex: editor.step
 
                     // 01 Profile
@@ -361,6 +378,18 @@ Item {
                             Layout.fillWidth: true
                             Layout.bottomMargin: 4
                             onReviewRequested: resumeReview.open()
+                        }
+                        PhotoPicker {
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: 4
+                            compact: true
+                            size: 96
+                            name: editor.draftName !== "" ? editor.draftName : qsTr("You")
+                            seed: editor.editing ? Backend.myProfileId : ""
+                            pending: editor.draftPhoto
+                            removedPending: editor.photoRemoved
+                            onCropped: url => { editor.draftPhoto = url; editor.photoRemoved = false }
+                            onRemoved: { editor.draftPhoto = ""; editor.photoRemoved = true }
                         }
                         TfText { text: qsTr("Full name"); variant: "label" }
                         TfTextField {
@@ -388,16 +417,21 @@ Item {
                             implicitHeight: claimRow.implicitHeight + 24
                             radius: Theme.radiusSmall
                             color: Theme.infoSubtle
-                            RowLayout {
+                            GridLayout {
                                 id: claimRow
-                                anchors.fill: parent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
                                 anchors.margins: 12
-                                spacing: 12
+                                columns: editor.width < 640 ? 2 : 3
+                                columnSpacing: 12
+                                rowSpacing: 8
                                 TfText {
                                     text: qsTr("Already in the TeamForge directory? Use your existing profile instead.")
                                     font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
+                                    Layout.columnSpan: editor.width < 640 ? 2 : 1
                                 }
                                 TfButton {
                                     text: qsTr("Find my profile")
@@ -775,7 +809,7 @@ Item {
 
         RowLayout {
             id: navRow
-            width: Math.min(parent.width - 48, 900)
+            width: Math.min(parent.width - (editor.width < 520 ? 24 : 48), 900)
             x: (parent.width - width) / 2
             anchors.verticalCenter: parent.verticalCenter
             spacing: 10
@@ -806,7 +840,7 @@ Item {
                 onClicked: editor.finish()
             }
             TfText {
-                visible: !(editor.showErrors && editor.blocker(editor.step) !== "")
+                visible: !(editor.showErrors && editor.blocker(editor.step) !== "") && editor.width >= 520
                 text: qsTr("Step %1 of %2").arg(editor.step + 1).arg(editor.steps.length)
                 variant: "muted"
                 font.weight: Font.Bold
@@ -814,7 +848,7 @@ Item {
             TfButton {
                 text: editor.step < editor.steps.length - 1 ? qsTr("Continue") : editor.editing ? qsTr("Save profile") : qsTr("Finish")
                 variant: "primary"
-                Layout.preferredWidth: 170
+                Layout.preferredWidth: editor.width < 520 ? 130 : 170
                 onClicked: editor.next()
             }
         }

@@ -198,3 +198,26 @@ td select { background: var(--input); color: var(--text); border: 1px solid var(
 .report p { margin: 4px 0; overflow-wrap: anywhere; }
 .report-log { border-left: 3px solid var(--violet); padding-left: 10px; margin: 8px 0 12px; }
 .report-log .from-recipient { color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------- account pages and password fields */
+.password-wrap { position: relative; display: block; }
+.password-wrap input { padding-right: 48px; }
+.reveal { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px;
+  display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted);
+  cursor: pointer; transition: color .15s ease, background .15s ease; }
+.reveal:hover { color: var(--text); background: rgba(255, 255, 255, .06); }
+.reveal:focus-visible { outline: none; box-shadow: var(--focus-ring); color: var(--text); }
+.reveal svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.link { color: #FF8F94; font-weight: 700; text-decoration: none; }
+.link:hover { color: #FFB3B6; text-decoration: underline; }
+.link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+.form-aside { margin: -6px 0 14px; text-align: right; font-size: 14px; }
+.form-foot { margin: 16px 0 0; text-align: center; font-size: 14px; color: var(--text-muted); }
+.auth-page.single { grid-template-columns: minmax(0, 460px); justify-content: center; }
+.auth-page.single .auth-card { justify-self: center; }
+.auth-logo.show { display: block; }
+.panel-icon { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; margin-bottom: 14px;
+  color: #FF8F94; background: linear-gradient(180deg, rgba(240, 67, 74, .26), rgba(240, 67, 74, .1));
+  box-shadow: inset 0 0 0 1px rgba(240, 67, 74, .35), 0 10px 24px -14px rgba(240, 67, 74, .8); }
+.panel-icon svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#verify-button { margin-top: 6px; }

@@ -107,8 +107,8 @@ try:
     check("avatar bytes must match the type", s == 400, (s, b))
     png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     s, b = leader.post("/profile", {"name": "Lee Leader", "headline": "Team lead", "skills": "c++, qt, C++", "avatar": png})
-    check("profile saved; duplicate skills dropped", s == 200 and b["profile"]["skills"] == ["c++", "qt"]
-          and b["profile"]["avatar"] == png, b)
+    check("profile saved; duplicate skills dropped; photo kept as a reference", s == 200
+          and b["profile"]["skills"] == ["c++", "qt"] and b["profile"]["avatar"].startswith("/api/hub/photos/"), b)
     member.profile("Mia Member")
     outsider.profile("Oscar Outsider")
     host.profile("Hana Host", acceptsAnonymous=True)

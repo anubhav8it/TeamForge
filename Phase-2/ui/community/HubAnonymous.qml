@@ -16,6 +16,7 @@ Item {
     signal navigate(string route)
     signal notify(string message)
 
+    readonly property bool narrow: width < 720
     property string box: "inbox"
     property string status: ""
     property var list: ({ items: [], page: 1, pages: 1, total: 0 })
@@ -85,11 +86,13 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 20
+        anchors.margins: anon.narrow ? 8 : 20
         spacing: Theme.gap
 
         // ---------------------------------------------------------------- list
         Surface {
+            visible: !anon.narrow || anon.threadId === ""
+            Layout.fillWidth: anon.narrow
             Layout.preferredWidth: 360
             Layout.fillHeight: true
             radius: Theme.radius
@@ -105,12 +108,15 @@ Item {
                     currentValue: anon.box
                     onActivated: value => { anon.box = value; anon.loadList(1) }
                 }
-                Segmented {
+                ScrollRow {
                     visible: anon.box === "inbox"
+                    Layout.fillWidth: true
+                Segmented {
                     options: [{ text: qsTr("All"), value: "" }, { text: qsTr("New"), value: "new" }, { text: qsTr("Interested"), value: "interested" },
                               { text: qsTr("Declined"), value: "declined" }]
                     currentValue: anon.status
                     onActivated: value => { anon.status = value; anon.loadList(1) }
+                }
                 }
                 HubSkeleton { visible: anon.loadingList && anon.list.items.length === 0; rows: 3; rowHeight: 70; Layout.fillWidth: true }
                 EmptyState {
@@ -185,6 +191,7 @@ Item {
 
         // ---------------------------------------------------------------- conversation
         Surface {
+            visible: !anon.narrow || anon.threadId !== ""
             Layout.fillWidth: true
             Layout.fillHeight: true
             radius: Theme.radius
@@ -229,8 +236,17 @@ Item {
                 // header
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.margins: 14
+                    Layout.margins: anon.narrow ? 8 : 14
                     spacing: 10
+                    TfButton {
+                        visible: anon.narrow
+                        text: "‹"
+                        variant: "ghost"
+                        compact: true
+                        font.pixelSize: 22
+                        Accessible.name: qsTr("Back to the list")
+                        onClicked: anon.navigate("anonymous")
+                    }
                     ColumnLayout {
                         spacing: 0
                         Layout.fillWidth: true

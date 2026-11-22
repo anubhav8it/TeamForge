@@ -47,13 +47,16 @@ ApplicationWindow {
     property int currentPage: 0
     // Icon-only sidebar on smaller windows (e.g. 1280 x 720) so the pages keep their room.
     readonly property bool compact: width < 1360
+    // Phones (and narrow browser windows): no sidebar; a top bar with a navigation drawer, and
+    // bottom tabs in the Participant workspace. Pages lay themselves out for the width.
+    readonly property bool phone: width < 760
     readonly property string workspace: Backend.workspace
 
     readonly property var navigation: ({
         participant: [
-            { title: qsTr("Home"), nav: qsTr("Your workspace"), glyph: "⌂", subtitle: qsTr("Who you are, what you're good at and where you fit") },
-            { title: qsTr("My profile"), nav: qsTr("Skills and experience"), glyph: "◉", subtitle: qsTr("How hosts see you when they build teams") },
-            { title: qsTr("Opportunities"), nav: qsTr("Projects that fit you"), glyph: "✦", subtitle: qsTr("Projects ranked by how well you fit them") },
+            { title: qsTr("Home"), short: qsTr("Home"), nav: qsTr("Your workspace"), glyph: "⌂", subtitle: qsTr("Who you are, what you're good at and where you fit") },
+            { title: qsTr("My profile"), short: qsTr("Profile"), nav: qsTr("Skills and experience"), glyph: "◉", subtitle: qsTr("How hosts see you when they build teams") },
+            { title: qsTr("Opportunities"), short: qsTr("Projects"), nav: qsTr("Projects that fit you"), glyph: "✦", subtitle: qsTr("Projects ranked by how well you fit them") },
             { key: "community", title: qsTr("Community"), glyph: "✉",
               nav: Hub.connected ? qsTr("%1 unread · %2 to review").arg(Hub.unreadMessages).arg(Hub.pendingDecisions) : qsTr("Teams, chat, applications"),
               subtitle: qsTr("Teams and their chat, applications, anonymous requests and notifications") }
@@ -112,19 +115,19 @@ ApplicationWindow {
         insights.showFit(studentId, requirementId)
     }
 
-    // On small screens (phones) the app keeps its 1100 x 660 layout and can be scrolled by dragging.
+    // Desktop layouts keep at least 1100 x 660 (a smaller window scrolls); phones get their own.
     Flickable {
         anchors.fill: parent
         contentWidth: appArea.width
         contentHeight: appArea.height
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        interactive: window.width < 1100 || window.height < 660
+        interactive: !window.phone && (window.width < 1100 || window.height < 660)
 
         Item {
             id: appArea
-            width: Math.max(window.width, 1100)
-            height: Math.max(window.height, 660)
+            width: window.phone ? window.width : Math.max(window.width, 1100)
+            height: window.phone ? window.height : Math.max(window.height, 660)
 
             EntryScreen {
                 anchors.fill: parent
@@ -145,6 +148,7 @@ ApplicationWindow {
                 spacing: 0
 
                 Sidebar {
+                    visible: !window.phone
                     pages: window.pages
                     currentIndex: window.currentPage
                     compact: window.compact
@@ -196,7 +200,17 @@ ApplicationWindow {
                         }
                     }
 
+                    MobileBar {
+                        visible: window.phone
+                        title: window.page.title ?? ""
+                        showBell: (window.pages.findIndex(p => p.key === "community") >= 0) && Hub.connected
+                        Layout.fillWidth: true
+                        onMenuClicked: navDrawer.open()
+                        onBellClicked: window.openCommunity("notifications")
+                    }
+
                     TopBar {
+                        visible: !window.phone
                         title: window.page.title ?? ""
                         subtitle: window.page.subtitle ?? ""
                         showProjectSwitcher: window.workspace === "host" && window.currentPage !== 1 && (window.page.key ?? "") !== "community"
@@ -212,14 +226,56 @@ ApplicationWindow {
                         onDismissed: Backend.clearError()
                     }
 
-                    Loader {
-                        id: workspaceLoader
+                    // The Host and Developer workspaces are desktop tools (tables, team building):
+                    // on a phone they keep a desktop width and scroll sideways, with a note.
+                    readonly property bool desktopTool: window.phone && window.workspace !== "participant"
+                                                        && (window.page.key ?? "") !== "community"
+                    Rectangle {
+                        visible: parent.desktopTool
+                        Layout.fillWidth: true
+                        implicitHeight: toolNote.implicitHeight + 14
+                        color: Theme.warningSubtle
+                        TfText {
+                            id: toolNote
+                            anchors.fill: parent
+                            anchors.margins: 7
+                            anchors.leftMargin: 14
+                            text: qsTr("This workspace is made for larger screens: swipe sideways to see all of it.")
+                            color: "#FFE5BD"
+                            font.pixelSize: Theme.fontXs
+                            wrapMode: Text.WordWrap
+                            elide: Text.ElideNone
+                        }
+                    }
+                    Flickable {
+                        id: workspaceArea
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        sourceComponent: window.workspace === "participant" ? participantWorkspace
-                                       : window.workspace === "host" ? hostWorkspace
-                                       : window.workspace === "developer" ? developerWorkspace : null
+                        contentWidth: parent.desktopTool ? Math.max(width, 1040) : width
+                        contentHeight: height
+                        flickableDirection: Flickable.HorizontalFlick
+                        boundsBehavior: Flickable.StopAtBounds
+                        interactive: contentWidth > width
+                        Loader {
+                            id: workspaceLoader
+                            width: workspaceArea.contentWidth
+                            height: workspaceArea.height
+                            clip: true
+                            sourceComponent: window.workspace === "participant" ? participantWorkspace
+                                           : window.workspace === "host" ? hostWorkspace
+                                           : window.workspace === "developer" ? developerWorkspace : null
+                        }
+                    }
+
+                    MobileTabBar {
+                        visible: window.phone && window.workspace === "participant" && Backend.myProfileId !== ""
+                                 && !window.participantEditing
+                        pages: window.pages
+                        currentIndex: window.currentPage
+                        tone: Theme.workspaceColor(window.workspace)
+                        Layout.fillWidth: true
+                        onNavigate: index => window.go(index)
                     }
                 }
             }
@@ -255,6 +311,32 @@ ApplicationWindow {
             onNavigate: index => window.go(index)
             onExplainFit: (studentId, requirementId) => window.explainFit(studentId, requirementId)
             onNotify: message => toast.show(message)
+        }
+    }
+
+    // Phones: the sidebar, as a drawer from the left (the top bar's menu, or a swipe).
+    Drawer {
+        id: navDrawer
+        edge: Qt.LeftEdge
+        width: Math.min(300, window.width * 0.86)
+        height: window.height
+        interactive: window.phone && window.workspace !== ""
+        background: Rectangle { color: Theme.sidebar }
+        Overlay.modal: Rectangle { color: "#99050810" }
+        Sidebar {
+            anchors.fill: parent
+            pages: window.pages
+            currentIndex: window.currentPage
+            compact: false
+            navigationEnabled: window.workspace !== "participant" || Backend.myProfileId !== ""
+            onNavigate: index => {
+                window.go(index)
+                navDrawer.close()
+            }
+        }
+        Connections {
+            target: Backend
+            function onWorkspaceChanged() { navDrawer.close() }
         }
     }
 

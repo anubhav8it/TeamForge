@@ -31,7 +31,7 @@ Surface {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            HubAvatar { person: ({ name: card.team.name ?? "", color: Theme.avatarColor(card.team.name ?? "") }); size: 42 }
+            TeamAvatar { name: card.team.name ?? ""; size: 42 }
             ColumnLayout {
                 spacing: 0
                 Layout.fillWidth: true

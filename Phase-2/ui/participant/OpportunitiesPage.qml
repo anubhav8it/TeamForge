@@ -21,21 +21,25 @@ TfPage {
     readonly property var types: [...new Set(all.map(o => o.type).filter(t => t))]
     readonly property var shown: all.filter(o => (typeFilter === "" || o.type === typeFilter)
         && (query === "" || o.name.toLowerCase().includes(query) || (o.summary ?? "").toLowerCase().includes(query)))
-    readonly property int columns: width >= 1400 ? 3 : 2
+    readonly property int columns: width >= 1400 ? 3 : width >= 760 ? 2 : 1
+    readonly property bool narrow: width < 720
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        anchors.topMargin: 20
+        anchors.margins: page.narrow ? 14 : 24
+        anchors.topMargin: page.narrow ? 14 : 20
         spacing: Theme.gap
 
-        RowLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: 12
+            columns: page.narrow ? 1 : 2
+            columnSpacing: 12
+            rowSpacing: 10
             TfTextField {
                 id: search
                 placeholderText: qsTr("Search projects")
                 Layout.preferredWidth: 320
+                Layout.fillWidth: page.narrow
                 onTextChanged: page.query = text.trim().toLowerCase()
             }
             Flow {

@@ -69,15 +69,20 @@ Item {
                         id: row
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 74
+                        implicitHeight: personGrid.implicitHeight + 24
                         radius: Theme.radius
                         color: Theme.surface
                         border.color: Theme.border
-                        RowLayout {
-                            anchors.fill: parent
+                        GridLayout {
+                            id: personGrid
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.leftMargin: 14
                             anchors.rightMargin: 12
-                            spacing: 12
+                            columns: people.width < 720 ? 2 : 4
+                            columnSpacing: 12
+                            rowSpacing: 8
                             HubAvatar { person: row.modelData; size: 44 }
                             ColumnLayout {
                                 spacing: 1

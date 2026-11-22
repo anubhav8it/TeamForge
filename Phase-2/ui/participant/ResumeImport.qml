@@ -77,13 +77,17 @@ Rectangle {
     // Open the review as soon as an analysis finishes.
     onPhaseChanged: if (phase === "ready") card.reviewRequested()
 
-    RowLayout {
+    // Narrow cards (phones): the buttons go under the text instead of squeezing it.
+    readonly property bool narrow: width < 560
+    GridLayout {
         id: body
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        anchors.margins: 18
-        spacing: 16
+        anchors.margins: card.narrow ? 14 : 18
+        columns: card.narrow ? 2 : 3
+        columnSpacing: card.narrow ? 12 : 16
+        rowSpacing: 12
 
         Rectangle {
             id: badge
@@ -198,7 +202,9 @@ Rectangle {
         }
 
         RowLayout {
-            Layout.alignment: Qt.AlignVCenter
+            Layout.alignment: card.narrow ? Qt.AlignLeft : Qt.AlignVCenter
+            Layout.columnSpan: card.narrow ? 2 : 1
+            Layout.leftMargin: card.narrow ? 68 : 0
             spacing: 8
             TfButton {
                 visible: card.phase === "ready"

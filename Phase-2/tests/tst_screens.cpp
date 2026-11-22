@@ -1,4 +1,5 @@
 #include "TeamForgeController.h"
+#include "Overflow.h"
 
 #include <QDir>
 #include <QGuiApplication>
@@ -50,6 +51,7 @@ private slots:
     void host();
     void developer();
     void noQmlWarnings();
+    void noSidewaysOverflowOnPhones();
 
 private:
     QQuickItem *itemWithText(const QString& text) const;
@@ -61,6 +63,7 @@ private:
     std::unique_ptr<QQmlApplicationEngine> engine_;
     QQuickWindow *window_ = nullptr;
     TeamForgeController *backend_ = nullptr;
+    QStringList overflow_;
 };
 
 void TestScreens::initTestCase()
@@ -109,6 +112,11 @@ void TestScreens::shot(const QString& name)
 {
     QTest::qWait(700); // entrances and fades finish
     QVERIFY(window_->grabWindow().save(folder_ + QLatin1Char('/') + name + QStringLiteral(".png")));
+    if (window_->width() <= 430) { // phone sizes: nothing may stick out sideways
+        const QStringList over = horizontalOverflow(window_);
+        if (!over.isEmpty())
+            overflow_ << name + QStringLiteral(": ") + over.join(QStringLiteral("; "));
+    }
 }
 
 void TestScreens::page(int index, const QString& name)
@@ -187,6 +195,11 @@ void TestScreens::developer()
 void TestScreens::noQmlWarnings()
 {
     QVERIFY2(warnings().isEmpty(), qPrintable(warnings().join(QLatin1Char('\n'))));
+}
+
+void TestScreens::noSidewaysOverflowOnPhones()
+{
+    QVERIFY2(overflow_.isEmpty(), qPrintable(overflow_.join(QStringLiteral(" | "))));
 }
 
 QTEST_MAIN(TestScreens)

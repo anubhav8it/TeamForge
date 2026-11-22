@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge – Forgot password</title>
+<meta name="theme-color" content="#0B0F1A">
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body class="has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
+<main class="auth-page single">
+  <div class="auth-card">
+    <img class="auth-logo show" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <section class="panel glass" data-spotlight>
+      <div class="panel-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>
+      </div>
+      <h1 class="panel-title">Forgot your password?</h1>
+      <p class="panel-sub">Enter the email address of your account and we'll send you a link to choose a new password.</p>
+      <div id="message" class="message hidden" role="alert"></div>
+      <form id="form-forgot" novalidate>
+        <label class="field"><span>Email</span>
+          <input type="email" name="email" id="forgot-email" autocomplete="email" required></label>
+        <button class="btn btn-primary" type="submit">Send reset link</button>
+      </form>
+      <p class="form-foot"><a class="link" href="/login">← Back to sign in</a></p>
+    </section>
+    <p class="auth-foot">For your security the answer is the same whether or not an account exists for the email.</p>
+  </div>
+</main>
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
+<script src="/static/js/account.js"></script>
+</body>
+</html>

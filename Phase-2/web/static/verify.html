@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeamForge – Confirm your email</title>
+<meta name="theme-color" content="#0B0F1A">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/static/img/teamforge_mark_dark.png">
+<link rel="stylesheet" href="/static/css/teamforge.css">
+</head>
+<body class="has-backdrop">
+<canvas id="backdrop" class="backdrop" aria-hidden="true"></canvas>
+<main class="auth-page single">
+  <div class="auth-card">
+    <img class="auth-logo show" src="/static/img/teamforge_logo_dark.png" alt="TeamForge">
+    <section class="panel glass" data-spotlight>
+      <div class="panel-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>
+      </div>
+      <h1 class="panel-title" id="verify-title">Confirming your email…</h1>
+      <p class="panel-sub" id="verify-sub">One moment.</p>
+      <!-- A button rather than an automatic request, so link scanners in email programs cannot use
+           up the one-time link before you open it. -->
+      <button class="btn btn-primary" id="verify-button" type="button">Confirm my email</button>
+      <p class="form-foot"><a class="link" href="/login">Go to sign in</a></p>
+    </section>
+  </div>
+</main>
+<script src="/static/js/backdrop.js"></script>
+<script src="/static/js/ambience.js"></script>
+<script src="/static/js/account.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@
 #include <QBuffer>
 #include <QDateTime>
 #include <QImage>
+#include <QImageReader>
 #include <QJSEngine>
 #include <QJsonDocument>
 #include <QQmlEngine>
@@ -376,6 +377,11 @@ void HubClient::signOut()
 void HubClient::applySummary(const QVariantMap& summary)
 {
     summary_ = summary;
+    const QString version = summary.value(QStringLiteral("identityVersion")).toString();
+    if (!version.isEmpty() && version != identityVersion_) {
+        identityVersion_ = version;
+        loadIdentities();
+    }
     const bool wasConnected = connected_;
     connected_ = true;
     statusText_.clear();
@@ -384,6 +390,77 @@ void HubClient::applySummary(const QVariantMap& summary)
     if (!wasConnected)
         emit stateChanged();
     emit summaryChanged();
+}
+
+void HubClient::loadIdentities()
+{
+    request(QStringLiteral("GET"), QStringLiteral("/api/hub/identities"), QVariant(), [this](int status, const QVariant& data) {
+        if (status != 200)
+            return;
+        QHash<QString, QVariantMap> fresh;
+        for (const QVariant& value : data.toMap().value(QStringLiteral("items")).toList()) {
+            const QVariantMap person = value.toMap();
+            const QString studentId = person.value(QStringLiteral("studentId")).toString();
+            if (!studentId.isEmpty())
+                fresh.insert(studentId, person);
+        }
+        identities_ = fresh;
+        ++identityRevision_;
+        emit identitiesChanged();
+    });
+}
+
+QVariantMap HubClient::identityForStudent(const QString& studentId) const
+{
+    if (studentId.isEmpty() || !connected_)
+        return {};
+    // One's own identity is known from the summary even before the list arrives.
+    const QVariantMap me = profile();
+    if (me.value(QStringLiteral("studentId")).toString() == studentId)
+        return me;
+    return identities_.value(studentId);
+}
+
+QString HubClient::photo(const QString& ref)
+{
+    if (ref.isEmpty() || ref.startsWith(QLatin1String("data:")))
+        return ref;
+    if (!ref.startsWith(QLatin1String("/api/hub/photos/")))
+        return {};
+    const auto cached = photos_.constFind(ref);
+    if (cached != photos_.constEnd())
+        return *cached;
+    if (!photosPending_.contains(ref)) {
+        photosPending_.insert(ref);
+        request(QStringLiteral("GET"), ref, QVariant(), [this, ref](int status, const QVariant& data) {
+            photosPending_.remove(ref);
+            if (status != 200)
+                return;
+            photos_.insert(ref, data.toMap().value(QStringLiteral("image")).toString());
+            ++photoRevision_;
+            emit photosChanged();
+        });
+    }
+    return {};
+}
+
+void HubClient::syncIdentity(const QString& name, const QString& program, const QString& studentId)
+{
+    if (!connected_ || name.trimmed().isEmpty())
+        return;
+    post(QStringLiteral("/profile/sync"),
+         QVariantMap{{QStringLiteral("name"), name}, {QStringLiteral("program"), program},
+                     {QStringLiteral("studentId"), studentId}});
+}
+
+void HubClient::uploadPhoto(const QString& dataUrl, const QJSValue& callback)
+{
+    post(QStringLiteral("/profile/photo"), QVariantMap{{QStringLiteral("image"), dataUrl}}, callback);
+}
+
+void HubClient::removePhoto(const QJSValue& callback)
+{
+    post(QStringLiteral("/profile/photo/remove"), QVariantMap(), callback);
 }
 
 void HubClient::refresh()
@@ -642,12 +719,55 @@ QString HubClient::avatarFromFile(const QUrl& file)
 
 void HubClient::avatarBytes(const QByteArray& bytes)
 {
+    QBuffer buffer;
+    buffer.setData(bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
+    reader.setAutoTransform(true); // phone photos: honour the camera's rotation
+    QImage image = bytes.isEmpty() ? QImage() : reader.read();
+    if (image.isNull()) {
+        emit avatarFailed(tr("That file is not a picture TeamForge can read. Use a JPEG or PNG."));
+        return;
+    }
+    if (image.width() < 64 || image.height() < 64) {
+        emit avatarFailed(tr("That picture is too small. Use one of at least 64 × 64 pixels."));
+        return;
+    }
+    if (image.width() > 1024 || image.height() > 1024)
+        image = image.scaled(1024, 1024, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    avatarSource_ = image.convertToFormat(QImage::Format_RGB32);
+    QByteArray preview;
+    QBuffer out(&preview);
+    out.open(QIODevice::WriteOnly);
+    if (!avatarSource_.save(&out, "JPEG", 88)) {
+        preview.clear();
+        out.seek(0);
+        avatarSource_.save(&out, "PNG");
+    }
+    const QString kind = preview.startsWith("\x89PNG") ? QStringLiteral("png") : QStringLiteral("jpeg");
+    emit avatarSourceReady(QStringLiteral("data:image/%1;base64,").arg(kind) + QString::fromLatin1(preview.toBase64()),
+                           avatarSource_.width(), avatarSource_.height());
+}
+
+QString HubClient::cropAvatar(double x, double y, double side)
+{
+    if (avatarSource_.isNull()) {
+        emit avatarFailed(tr("Choose a picture first."));
+        return {};
+    }
+    const int s = std::max(1, std::min({int(side), avatarSource_.width(), avatarSource_.height()}));
+    const int left = std::clamp(int(x), 0, avatarSource_.width() - s);
+    const int top = std::clamp(int(y), 0, avatarSource_.height() - s);
+    const QImage square = avatarSource_.copy(left, top, s, s);
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    square.save(&buffer, "PNG");
     QString error;
-    const QString url = encodeAvatar(bytes, &error);
+    const QString url = encodeAvatar(bytes, &error); // centre square of a square: the crop itself
     if (url.isEmpty())
         emit avatarFailed(error);
-    else
-        emit avatarPicked(url);
+    return url;
 }
 
 void HubClient::pickAvatar()
