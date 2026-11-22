@@ -162,3 +162,9 @@ td select { background: var(--input); color: var(--text); border: 1px solid var(
 .danger-row input { flex: 1; min-width: 160px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
 .btn-danger { background: transparent; border: 1px solid var(--accent); color: var(--accent-hover); }
 .btn-danger:hover { background: rgba(240, 67, 74, .14); }
+/* Admin: reported anonymous conversations */
+.report { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; background: var(--input); }
+.report-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.report p { margin: 4px 0; overflow-wrap: anywhere; }
+.report-log { border-left: 3px solid var(--violet); padding-left: 10px; margin: 8px 0 12px; }
+.report-log .from-recipient { color: var(--text-secondary); }

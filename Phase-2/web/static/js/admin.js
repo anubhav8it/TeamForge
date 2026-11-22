@@ -61,6 +61,58 @@
     }
   }
 
+  // ---- reported anonymous conversations (web/hub.py, /api/hub/admin/reports)
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  async function loadReports() {
+    const box = $("reports");
+    const data = await api("/api/hub/admin/reports?status=open");
+    box.textContent = "";
+    if (!data.items.length) {
+      box.appendChild(el("p", "sub", "No open reports."));
+      return;
+    }
+    for (const report of data.items) {
+      const card = el("div", "report");
+      const head = el("div", "report-head");
+      head.appendChild(el("strong", "", "To " + report.thread.target.name));
+      head.appendChild(el("span", "chip participant", report.thread.target.kind.toUpperCase()));
+      head.appendChild(el("span", "sub", " reported " + when(report.createdAt) + " by " + report.reporter));
+      card.appendChild(head);
+      card.appendChild(el("p", "", "Reason: " + report.reason));
+      card.appendChild(el("p", "sub", "Sent by the account " + report.senderEmail));
+      const log = el("div", "report-log");
+      for (const message of report.messages) {
+        const line = el("p", message.fromSender ? "from-sender" : "from-recipient");
+        line.appendChild(el("strong", "", message.fromSender ? "Sender: " : "Recipient: "));
+        line.appendChild(document.createTextNode(message.body));
+        log.appendChild(line);
+      }
+      card.appendChild(log);
+      const actions = el("div", "danger-row");
+      for (const [action, label, kind] of [["block", "Block sender", "btn btn-danger"], ["dismiss", "Dismiss", "btn btn-ghost"]]) {
+        const button = el("button", kind, label);
+        button.type = "button";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          try {
+            await api("/api/hub/admin/reports/" + report.id + "/resolve", "POST", { action });
+            show(action === "block" ? "Sender blocked for that recipient." : "Report dismissed.", "info");
+          } catch (error) { show(error.message); }
+          loadReports().catch(e => show(e.message));
+        });
+        actions.appendChild(button);
+      }
+      card.appendChild(actions);
+      box.appendChild(card);
+    }
+  }
+
   $("reset").addEventListener("click", async () => {
     try {
       await api("/api/admin/reset-data", "POST", { confirm: $("reset-confirm").value.trim() });
@@ -75,4 +127,5 @@
   });
 
   load().catch(error => show(error.message));
+  loadReports().catch(error => show(error.message));
 })();

@@ -42,11 +42,14 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
+from contextlib import contextmanager
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
+
+import hub as hub_module  # web/hub.py: teams, chat, applications, anonymous requests, notifications
 
 # --------------------------------------------------------------------------- configuration
 
@@ -186,6 +189,7 @@ class Database:
 
     def __init__(self, url: str, sqlite_path: Path):
         self.lock = threading.RLock()
+        self.in_transaction = False
         self.url = url
         self.is_pg = url.startswith(("postgres://", "postgresql://"))
         self.sqlite_path = sqlite_path
@@ -220,7 +224,8 @@ class Database:
                     cur.close()
                     return row
                 except Exception as error:  # reconnect once if PostgreSQL dropped the connection
-                    if self.is_pg and attempt == 1 and self._is_disconnect(error):
+                    # (never inside a transaction: its earlier statements would be lost)
+                    if self.is_pg and attempt == 1 and not self.in_transaction and self._is_disconnect(error):
                         log.warning("database connection lost; reconnecting")
                         self._connect()
                         continue
@@ -238,6 +243,44 @@ class Database:
 
     def execute(self, sql, params=()) -> int:
         return self._run(sql, params)
+
+    def insert(self, sql, params=()) -> int:
+        """Runs an INSERT into a table with an `id` column and returns the new id."""
+        with self.lock:
+            cur = self.conn.cursor()
+            if self.is_pg:
+                cur.execute(self._sql(sql) + " RETURNING id", params)
+                new_id = cur.fetchone()[0]
+            else:
+                cur.execute(sql, params)
+                new_id = cur.lastrowid
+            cur.close()
+            return int(new_id)
+
+    @contextmanager
+    def transaction(self):
+        """All statements inside run as one unit (all or nothing). Holds the lock throughout, so
+        nothing else in this process runs in between; with the single connection that also makes
+        check-then-write sequences (capacity, duplicate applications) safe."""
+        with self.lock:
+            if self.in_transaction:  # nested: part of the outer transaction
+                yield
+                return
+            self.in_transaction = True
+            try:
+                if self.is_pg:
+                    with self.conn.transaction():
+                        yield
+                else:
+                    self.conn.execute("BEGIN IMMEDIATE")
+                    try:
+                        yield
+                    except BaseException:
+                        self.conn.execute("ROLLBACK")
+                        raise
+                    self.conn.execute("COMMIT")
+            finally:
+                self.in_transaction = False
 
     def ping(self) -> bool:
         """True when the database answers a trivial query (used by /readyz)."""
@@ -267,6 +310,7 @@ class Database:
         ]
         for sql in statements:
             self.execute(sql)
+        hub_module.create_schema(self)
 
 
 # --------------------------------------------------------------------------- application logic
@@ -657,6 +701,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     store: TeamForgeStore = None  # set in main()
+    hub: hub_module.Hub = None    # set in main()
     throttle = Throttle()
     gz = GzipCache()
     reader = DocumentReader(AZURE_DOCINTEL_ENDPOINT, AZURE_DOCINTEL_KEY)
@@ -855,6 +900,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/versions":
             return self.send_json(200, {"versions": self.store.versions()})
+        if path.startswith("/api/hub/"):
+            return self.hub_request(user, path, urlsplit(self.path).query)
         if path == "/api/admin/users":
             if user["role"] != "admin":
                 return self.send_json(403, {"error": "Admins only."})
@@ -865,7 +912,8 @@ class Handler(BaseHTTPRequestHandler):
     def public_user(user):
         if not user:
             return None
-        return {"email": user["email"], "role": user["role"], "workspaces": WORKSPACES[user["role"]].split(",")}
+        return {"id": user["id"], "email": user["email"], "role": user["role"],
+                "workspaces": WORKSPACES[user["role"]].split(",")}
 
     # ---- write routes
     def route_write(self, path, body):
@@ -879,6 +927,8 @@ class Handler(BaseHTTPRequestHandler):
         user = self.current_user()
         if not user:
             return self.send_json(401, {"error": "Please sign in again."})
+        if path.startswith("/api/hub/") and self.command == "POST":
+            return self.hub_request(user, path, "", body)
         match = re.fullmatch(r"/api/files/([A-Za-z0-9_.\-]+)", path)
         if match and self.command == "PUT":
             return self.save_file(user, match.group(1), body)
@@ -902,6 +952,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.store.reset_shared(user["email"])
                 return self.send_json(200, {"ok": True, "versions": self.store.versions()})
         self.send_json(404, {"error": "Not found"})
+
+    def hub_request(self, user, path, query, body=None):
+        """Teams, chat, applications, anonymous requests and notifications (web/hub.py). Every
+        rule is checked there, against the signed-in account."""
+        status, payload = self.hub.handle(user, self.command if self.command != "HEAD" else "GET",
+                                          path[len("/api/hub"):], query, body)
+        return self.send_json(status, payload)
 
     def credentials(self, body):
         email = str(body.get("email", "")).strip().lower()
@@ -1066,6 +1123,7 @@ def main():
     if store.seed_if_empty():
         log.info("first start: shared data created from the sample data")
     Handler.store = store
+    Handler.hub = hub_module.Hub(db, RateLimit)
     if not ADMIN_EMAILS:
         log.warning("ADMIN_EMAILS is not set: nobody can become admin (Developer workspace, user roles).")
     if not Handler.reader.available:

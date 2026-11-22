@@ -1,7 +1,7 @@
 import QtQuick
 import TeamForge
 
-// Participant workspace: Home, My profile, Opportunities. Without a profile it shows the
+// Participant workspace: Home, My profile, Opportunities, Community. Without a profile it shows the
 // five-step onboarding instead; "Edit profile" reuses the same editor. No host or developer
 // controls exist here, and the backend rejects their actions in this workspace anyway.
 Item {
@@ -71,6 +71,15 @@ Item {
             onViewOpportunity: id => workspace.viewOpportunity(id)
             onWhyThisMatch: id => workspace.whyThisMatch(id)
             onExpressInterest: id => workspace.expressInterest(id)
+        }
+        // Teams, chat, applications, anonymous requests and notifications (src/app/HubClient.h).
+        Loader {
+            anchors.fill: parent
+            active: workspace.currentPage === 3
+            sourceComponent: CommunityPage {
+                active: workspace.currentPage === 3
+                onNotify: message => workspace.notify(message)
+            }
         }
     }
 

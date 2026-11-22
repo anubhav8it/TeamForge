@@ -1,6 +1,7 @@
 add_library(teamforge_core STATIC
     CoverageOnlyStrategy.cpp CoverageOnlyStrategy.h
     DocumentText.cpp DocumentText.h
+    Hub.cpp Hub.h
     Errors.h
     Inflate.cpp Inflate.h
     Interest.cpp Interest.h

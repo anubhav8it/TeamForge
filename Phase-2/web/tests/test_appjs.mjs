@@ -96,5 +96,16 @@ const after = await (await rawFetch("/api/bootstrap")).json();
 check("stale change did not overwrite the other person's", JSON.parse(after.files["students.json"]).students[3].summary === "Someone else");
 check("conflict notice shown", el("notice").className === "notice error" && /Reload/.test(el("notice-text").textContent), el("notice-text").textContent);
 
+// 5. TF_hub: the Community requests the app makes (src/app/HubClient.cpp)
+const summary = await globalThis.TF_hub("GET", "/api/hub/summary", "");
+check("TF_hub GET returns status and text", summary.status === 200 && "unreadNotifications" in JSON.parse(summary.text), summary);
+const saved = await globalThis.TF_hub("POST", "/api/hub/notifications/read", JSON.stringify({ all: true }));
+check("TF_hub POST sends the TeamForge header and JSON body", saved.status === 200 && JSON.parse(saved.text).unread === 0, saved);
+const outside = await globalThis.TF_hub("GET", "https://evil.example/api/hub/summary", "");
+const sneaky = await globalThis.TF_hub("GET", "//evil.example/api/x", "");
+check("TF_hub only requests this server's /api/ paths", outside.status === 400 && sneaky.status === 400, [outside, sneaky]);
+const refused = await globalThis.TF_hub("GET", "/api/hub/teams/999999/messages", "");
+check("TF_hub passes refusals through", refused.status === 404 && JSON.parse(refused.text).error, refused);
+
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`);
-process.exit(0);
+process.exit(results.every(Boolean) ? 0 : 1);

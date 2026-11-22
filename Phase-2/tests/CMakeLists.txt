@@ -20,6 +20,7 @@ teamforge_add_test(tst_engine tst_engine.cpp TestSupport.h)
 teamforge_add_test(tst_persistence tst_persistence.cpp TestSupport.h)
 teamforge_add_test(tst_motivation tst_motivation.cpp)
 teamforge_add_test(tst_resume tst_resume.cpp)
+teamforge_add_test(tst_hub tst_hub.cpp)
 
 # The QML bridge is compiled into the app's QML module; the test builds the same sources directly.
 teamforge_add_test(tst_controller tst_controller.cpp
@@ -42,3 +43,9 @@ target_link_libraries(tst_controller PRIVATE Qt6::Qml Qt6::Gui)
 teamforge_add_test(tst_ui tst_ui.cpp)
 target_link_libraries(tst_ui PRIVATE teamforge_ui teamforge_uiplugin)
 set_tests_properties(tst_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# The Community screens against a local TeamForge server (skipped unless TEAMFORGE_TEST_SERVER is set;
+# fill the server with web/tools/demo_hub_data.py first).
+teamforge_add_test(tst_community tst_community.cpp)
+target_link_libraries(tst_community PRIVATE teamforge_ui teamforge_uiplugin)
+set_tests_properties(tst_community PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

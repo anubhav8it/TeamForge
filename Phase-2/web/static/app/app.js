@@ -184,6 +184,34 @@
     }
   };
 
+  // ---------------------------------------------------------------- Community (web/hub.py)
+  // Called by the app (src/app/HubClient.cpp) for teams, chat, applications, anonymous requests
+  // and notifications. Only same-origin /api/ paths, with this page's sign-in cookie. Resolves to
+  // {status, text}; status 0 = the server could not be reached. A GET may wait up to 25 s (live
+  // chat updates), so the timeout is longer than that.
+  window.TF_hub = async function (method, path, body) {
+    if (typeof path !== "string" || path.indexOf("/api/") !== 0 || path.indexOf("//") >= 0)
+      return { status: 400, text: JSON.stringify({ error: "Invalid request." }) };
+    const post = method === "POST";
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), 60000) : null;
+    try {
+      const res = await fetch(path, {
+        method: post ? "POST" : "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: post ? { "Content-Type": "application/json", "X-TeamForge": "1" } : {},
+        body: post ? (body || "{}") : undefined,
+        signal: controller ? controller.signal : undefined,
+      });
+      return { status: res.status, text: await res.text() };
+    } catch (e) {
+      return { status: 0, text: JSON.stringify({ error: "The server could not be reached. Check your connection." }) };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
   // ---------------------------------------------------------------- account bar
   function showAccount(user) {
     const who = $("who");

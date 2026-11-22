@@ -2,7 +2,7 @@ import QtQuick
 import TeamForge
 
 // Host workspace: Overview -> Projects -> Applicants -> Participants -> Matching (team building
-// lives in Matching). Created only while the host workspace is active.
+// lives in Matching), plus Community. Created only while the host workspace is active.
 Item {
     id: workspace
 
@@ -52,5 +52,14 @@ Item {
         onCreateProject: { projectsPage.startNew(); workspace.navigate(1) }
         onExplain: studentId => workspace.explain(studentId)
         onNotify: message => workspace.notify(message)
+    }
+    // Teams, chat, applications (incl. the events this host organises), anonymous requests.
+    Loader {
+        anchors.fill: parent
+        active: workspace.currentPage === 5
+        sourceComponent: CommunityPage {
+            active: workspace.currentPage === 5
+            onNotify: message => workspace.notify(message)
+        }
     }
 }

@@ -63,6 +63,28 @@ Each block is marked complete only after it has been tested. Newest findings fir
 - [ ] Key Vault decision implemented
 - [ ] Block 1 completion report
 
+## Community: teams, messaging, applications (branch `team-hub`, 2026-11-22)
+
+Built from the "Team Forge feature expansion" prompt; covers most of Blocks 5 and 6 below. Details:
+`Phase-2/web/README-WEB.md`, section *Community*.
+
+- [x] Server `web/hub.py`: 12 relational tables, `/api/hub/` routes, every request authorised on
+      the server (this fixes problem 1 above for the new features; the five JSON files are unchanged)
+- [x] Teams with leader / admin / member roles; private team chat with pages, unread counts, live
+      updates (long polling)
+- [x] Team join applications; event applications (organiser, deadline, places, waitlist)
+- [x] Anonymous connection requests with replies, status, invite to apply, report, block; admin
+      moderation on the Admin page
+- [x] Notifications with unread counts and links; applications dashboard with filters and pages
+- [x] C++ rules `src/core/Hub.h` + `tests/tst_hub`; QML screens `ui/community/`; `HubClient`
+      (browser: `TF_hub` in app.js; desktop: Qt Network)
+- [x] Tests: test_hub.py 106/106, test_server.py 76/76, copy_database 10/10, test_appjs 15/15,
+      ctest 11/11 (incl. tst_community against a demo server)
+- [ ] Not verified: the WebAssembly build (CI only; the browser transport mirrors the existing
+      `TF_readDocument` pattern) and a run on Render/Azure
+- [ ] Open: accounts are still not linked to the matching profiles (problem 2); events = projects,
+      so approvals do not change interest_requests.json; rate limits reset on restart
+
 ## Blocks 2 to 8
 
 Not started. Order: database reset and live authentication; profiles and portfolios; discovery

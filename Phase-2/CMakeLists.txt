@@ -100,6 +100,36 @@ qt_add_qml_module(teamforge_ui
         ui/developer/DevSkillsPage.qml
         ui/developer/DevWorkspacePage.qml
         ui/developer/RecordInspector.qml
+        ui/community/AnonymousDialog.qml
+        ui/community/ApplicationCard.qml
+        ui/community/ApplyDialog.qml
+        ui/community/CommunityPage.qml
+        ui/community/DecisionDialog.qml
+        ui/community/EventSettingsDialog.qml
+        ui/community/HubAnonymous.qml
+        ui/community/HubApplications.qml
+        ui/community/HubAvatar.qml
+        ui/community/HubBadge.qml
+        ui/community/HubChatBubble.qml
+        ui/community/HubConnect.qml
+        ui/community/HubDialog.qml
+        ui/community/HubEventDetail.qml
+        ui/community/HubEvents.qml
+        ui/community/HubHome.qml
+        ui/community/HubLabel.qml
+        ui/community/HubMessages.qml
+        ui/community/HubNotificationRow.qml
+        ui/community/HubNotifications.qml
+        ui/community/HubPager.qml
+        ui/community/HubPeople.qml
+        ui/community/HubProfile.qml
+        ui/community/HubSkeleton.qml
+        ui/community/HubStatus.qml
+        ui/community/HubTeamCard.qml
+        ui/community/HubTeamDetail.qml
+        ui/community/HubTeams.qml
+        ui/community/PersonDialog.qml
+        ui/community/TeamFormDialog.qml
     RESOURCES
         assets/teamforge_logo_dark.png
         assets/teamforge_mark_dark.png
@@ -126,10 +156,17 @@ qt_add_qml_module(teamforge_ui
         src/app/BridgeSupport.cpp src/app/BridgeSupport.h
         src/app/AppLog.cpp src/app/AppLog.h
         src/app/SampleData.cpp src/app/SampleData.h
+        src/app/HubClient.cpp src/app/HubClient.h
 )
 
 target_include_directories(teamforge_ui PUBLIC src/app)
 target_link_libraries(teamforge_ui PUBLIC Qt6::Quick teamforge_core PRIVATE teamforge_warnings)
+# The Community (src/app/HubClient.h) talks to the TeamForge server. The desktop app does that with
+# Qt Network; the browser build goes through the page (app.js, TF_hub) and needs no extra module.
+if(NOT EMSCRIPTEN)
+    find_package(Qt6 REQUIRED COMPONENTS Network)
+    target_link_libraries(teamforge_ui PUBLIC Qt6::Network)
+endif()
 
 # The application: main.cpp only; everything else is in teamforge_ui.
 qt_add_executable(teamforge

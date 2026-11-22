@@ -53,14 +53,20 @@ ApplicationWindow {
         participant: [
             { title: qsTr("Home"), nav: qsTr("Your workspace"), glyph: "⌂", subtitle: qsTr("Who you are, what you're good at and where you fit") },
             { title: qsTr("My profile"), nav: qsTr("Skills and experience"), glyph: "◉", subtitle: qsTr("How hosts see you when they build teams") },
-            { title: qsTr("Opportunities"), nav: qsTr("Projects that fit you"), glyph: "✦", subtitle: qsTr("Projects ranked by how well you fit them") }
+            { title: qsTr("Opportunities"), nav: qsTr("Projects that fit you"), glyph: "✦", subtitle: qsTr("Projects ranked by how well you fit them") },
+            { key: "community", title: qsTr("Community"), glyph: "✉",
+              nav: Hub.connected ? qsTr("%1 unread · %2 to review").arg(Hub.unreadMessages).arg(Hub.pendingDecisions) : qsTr("Teams, chat, applications"),
+              subtitle: qsTr("Teams and their chat, applications, anonymous requests and notifications") }
         ],
         host: [
             { title: qsTr("Overview"), nav: qsTr("Home"), subtitle: qsTr("Your active project at a glance") },
             { title: qsTr("Projects"), nav: qsTr("What the team needs"), subtitle: qsTr("Set the skills and team size a project needs") },
             { title: qsTr("Applicants"), nav: qsTr("Review interest"), subtitle: qsTr("Participants who want to join your project") },
             { title: qsTr("Participants"), nav: qsTr("Skill profiles"), subtitle: qsTr("%1 profiles with skills and experience").arg(Backend.students.length) },
-            { title: qsTr("Matching"), nav: qsTr("Best matches & team"), subtitle: qsTr("Pick people, check coverage, save the team") }
+            { title: qsTr("Matching"), nav: qsTr("Best matches & team"), subtitle: qsTr("Pick people, check coverage, save the team") },
+            { key: "community", title: qsTr("Community"), glyph: "✉",
+              nav: Hub.connected ? qsTr("%1 unread · %2 to review").arg(Hub.unreadMessages).arg(Hub.pendingDecisions) : qsTr("Teams, chat, applications"),
+              subtitle: qsTr("Teams and their chat, applications, anonymous requests and notifications") }
         ],
         developer: [
             { title: qsTr("Overview"), nav: qsTr("The data at a glance"), glyph: "▣", subtitle: qsTr("TeamForge %1 · everything in this local workspace").arg(Backend.version) },
@@ -88,6 +94,14 @@ ApplicationWindow {
 
     function go(index) {
         currentPage = index
+    }
+    // Opens the Community page of the current workspace at `route` ("notifications", "teams/3" ...).
+    function openCommunity(route) {
+        const index = pages.findIndex(p => p.key === "community")
+        if (index < 0)
+            return
+        Hub.route = route
+        go(index)
     }
     // Why this match? for a host candidate (scored against the current team).
     function explain(studentId) {
@@ -178,8 +192,10 @@ ApplicationWindow {
                     TopBar {
                         title: window.page.title ?? ""
                         subtitle: window.page.subtitle ?? ""
-                        showProjectSwitcher: window.workspace === "host" && window.currentPage !== 1
+                        showProjectSwitcher: window.workspace === "host" && window.currentPage !== 1 && (window.page.key ?? "") !== "community"
+                        showBell: (window.pages.findIndex(p => p.key === "community") >= 0) && Hub.connected
                         Layout.fillWidth: true
+                        onBellClicked: window.openCommunity("notifications")
                     }
 
                     ErrorBanner {
