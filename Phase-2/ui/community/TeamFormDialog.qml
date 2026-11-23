@@ -28,6 +28,14 @@ HubDialog {
     function setLevel(skill, level) {
         required = required.map(r => r.skill === skill ? { skill: skill, level: level } : r)
     }
+    // { skill: level } for the server. Built by hand: QML's JavaScript engine has no Object.fromEntries,
+    // and calling it threw before the request was sent, so "Create team" silently did nothing.
+    function requiredSkillsMap() {
+        const map = {}
+        for (const r of required)
+            map[r.skill] = r.level
+        return map
+    }
 
     title: team ? qsTr("Edit team") : qsTr("Create a team")
     subtitle: team ? "" : qsTr("You become the team's leader. People can then apply to join, and members get a private chat.")
@@ -63,7 +71,7 @@ HubDialog {
         }
         const body = {
             name: name.text, tagline: tagline.text, description: description.text, objectives: objectives.text,
-            openRoles: roles.text, requiredSkills: Object.fromEntries(form.required.map(r => [r.skill, r.level])),
+            openRoles: roles.text, requiredSkills: form.requiredSkillsMap(),
             maxMembers: size.value, recruiting: recruiting.checked,
             eventId: eventBox.currentIndex > 0 ? form.events[eventBox.currentIndex - 1].id : null
         }

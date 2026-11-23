@@ -3,6 +3,7 @@
 #include "TeamForgeController.h"
 
 #include <QBuffer>
+#include <QDateTime>
 #include <QDir>
 #include <QImage>
 #include <QPainter>
@@ -63,12 +64,14 @@ private slots:
     void chatSendsAndShowsMessages();
     void anonymousInboxHidesTheSender();
     void recruitmentScreens();
+    void createsATeamFromTheForm();
     void samePhotoEverywhere();
     void noQmlWarnings();
 
 private:
     bool anyVisibleTextContaining(const QString& part) const;
     bool clickButton(const QString& text);
+    bool typeInto(const QString& placeholder, const QString& text);
     QString visibleButtons() const;
     void checkPhoneOverflow(const QString& where);
     void shot(const QString& name);
@@ -142,6 +145,24 @@ bool TestCommunity::clickButton(const QString& text)
     };
     visit(window_->contentItem());
     return found && QMetaObject::invokeMethod(found, "clicked");
+}
+
+// Sets the text of the visible text field with this placeholder, as typing would.
+bool TestCommunity::typeInto(const QString& placeholder, const QString& text)
+{
+    QQuickItem *found = nullptr;
+    const std::function<void(QQuickItem *)> visit = [&](QQuickItem *item) {
+        if (found || !item->isVisible() || item->opacity() <= 0.0)
+            return;
+        if (item->property("placeholderText").toString() == placeholder) {
+            found = item;
+            return;
+        }
+        for (QQuickItem *child : item->childItems())
+            visit(child);
+    };
+    visit(window_->contentItem());
+    return found && found->setProperty("text", text);
 }
 
 QString TestCommunity::visibleButtons() const
@@ -356,6 +377,30 @@ void TestCommunity::recruitmentScreens()
     QTest::qWait(300);
     checkPhoneOverflow(QStringLiteral("applications with compatibility"));
     shot(QStringLiteral("recruit-applications"));
+}
+
+// The whole "Create a team" form, as a person uses it: a name, a required skill, then Create team.
+// The click used to throw in QML (Object.fromEntries does not exist there) before any request was
+// sent, so nothing happened at all; the server tests could not see that.
+void TestCommunity::createsATeamFromTheForm()
+{
+    hub_->setRoute(QStringLiteral("teams?create=1"));
+    QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(QStringLiteral("You become the team's leader")), 6000);
+    const QString name = QStringLiteral("Form Test %1").arg(QDateTime::currentMSecsSinceEpoch() % 100000000);
+    QVERIFY(typeInto(QStringLiteral("e.g. Rocket Lab"), name));
+    QVERIFY(typeInto(QStringLiteral("Skill, e.g. Python"), QStringLiteral("qt")));
+    QVERIFY2(clickButton(QStringLiteral("Add")), qPrintable(visibleButtons()));
+    QVERIFY2(clickButton(QStringLiteral("Create team")), qPrintable(visibleButtons()));
+    // Created (the team page opens), or refused by the server's 5-per-hour limit after many runs
+    // against one server: either way the request was sent and the answer shown.
+    QTRY_VERIFY2_WITH_TIMEOUT(hub_->route().startsWith(QLatin1String("teams/"))
+                                  || anyVisibleTextContaining(QStringLiteral("created several teams")),
+                              qPrintable(QStringLiteral("route ") + hub_->route()), 8000);
+    if (hub_->route().startsWith(QLatin1String("teams/")))
+        QTRY_VERIFY_WITH_TIMEOUT(anyVisibleTextContaining(name), 6000);
+    else
+        QVERIFY(clickButton(QStringLiteral("Cancel")));
+    shot(QStringLiteral("team-created"));
 }
 
 void TestCommunity::noQmlWarnings()
